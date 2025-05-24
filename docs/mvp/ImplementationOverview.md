@@ -1,4 +1,4 @@
-# MVP Development Plan (with n8n Integration)
+# MVP Implementation Overview
 
 This plan outlines the development phases for the Minimum Viable Product (MVP) of the API lifecycle management platform, incorporating n8n for workflow automation.
 

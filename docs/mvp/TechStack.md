@@ -1,17 +1,17 @@
 # MVP Tech Stack and Components
 
-* **Frontend Framework:** **React**
-* **State Management:** **Zustand**
-* **Styling:** **Tailwind CSS**
-* **UI Components:** **shadcn/ui** (which utilizes Tailwind CSS)
-* **Backend Language/Framework:** **Python** with **FastAPI**
-* **Database:** **PostgreSQL**
-* **Mocking Engine:** **WireMock** (run as a separate Docker container)
-* **Provider Validation Tool:** **Schemathesis** (integrated as a Python library within FastAPI or CLI)
-* **HAR Import & Transformation:** Custom Python logic within the FastAPI backend.
-* **Basic AI Assistance:** Python libraries (e.g., NLTK, spaCy, scikit-learn, Hugging Face Transformers for smaller local models, or SDKs for LLM APIs if used) integrated into the FastAPI backend.
-* **Containerization:** **Docker**
-* **Orchestration (MVP):** **Docker Compose**
+* Frontend Framework: React and Typescript
+* State Management: Zustand
+* Styling: Tailwind CSS
+* UI Components: shadcn/ui (which utilizes Tailwind CSS)
+* Backend Language/Framework: Python with FastAPI
+* Database: PostgreSQL
+* Mocking Engine: WireMock (run as a separate Docker container)
+* Provider Validation Tool: Schemathesis (integrated as a Python library within FastAPI or CLI)
+* HAR Import & Transformation: Custom Python logic within the FastAPI backend.
+* Basic AI Assistance: Python libraries (e.g., NLTK, spaCy, scikit-learn, Hugging Face Transformers for smaller local models, or SDKs for LLM APIs if used) integrated into the FastAPI backend.
+* Containerization: Docker
+* Orchestration (MVP): Docker Compose
 
 And here is the Mermaid diagram visualizing these components again:
 
@@ -26,16 +26,14 @@ graph TD
     ReactFrontend -->|Consumer Tests| WireMockService["WireMock (Mock Endpoints)"]
 
     subgraph ServerEnvironment [Docker Compose Managed Services]
-        FastAPIBackend["FastAPI Backend (Python)"]
+        FastAPIBackend["FastAPI Backend (Python)<br/>- Handles HAR Import & Transformation<br/>- Integrates AI Modules (for HAR processing, suggestions, etc.)"]
         PostgreSQLDatabase["PostgreSQL Database"]
         WireMockService
         SchemathesisTool["Schemathesis (as Library/CLI)"]
-        AILogic["AI Modules (HAR Processing, Suggestions)"]
 
         FastAPIBackend -->|Store/Retrieve Data| PostgreSQLDatabase
         FastAPIBackend -->|Configure Mocks via Admin API| WireMockService
         FastAPIBackend -->|Run Provider Validation| SchemathesisTool
-        FastAPIBackend -->|Utilizes| AILogic
     end
 
     Developer -->|Manage Services| DockerCompose["Docker Compose"]
