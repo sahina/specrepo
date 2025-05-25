@@ -1,5 +1,5 @@
 # Use an official Node runtime as a parent image
-FROM node:18-bullseye
+FROM --platform=linux/arm64 node:20-bookworm-slim
 
 # Install build tools that might be needed for native modules
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
@@ -10,19 +10,22 @@ WORKDIR /app
 
 # Install and setup pnpm
 RUN npm install -g pnpm
-RUN pnpm setup # Configure pnpm environment
+ENV ROLLUP_NO_NATIVE=true
 
 # Copy configuration files and package manifests
 COPY package.json ./
 COPY tsconfig.json ./
-# COPY pnpm-lock.yaml ./ # Do not copy lockfile initially, let pnpm resolve
+# COPY pnpm-lock.yaml ./ # We will remove it before install
 
 # Clean install & try shamefully-hoist
-RUN rm -rf node_modules pnpm-lock.yaml
+RUN rm -rf node_modules pnpm-lock.yaml # Ensure lockfile is gone before fresh resolve
 RUN pnpm install --shamefully-hoist
 
+# Aggressively try to disable Rollup native module by removing its loader
+RUN find /app/node_modules/.pnpm -path '*/rollup/dist/native.js' -delete
+
 # Copy the rest of the application code
-COPY . .
+COPY . ./
 
 # Build the app (if you have a build step for production)
 # RUN pnpm run build # Uncomment if you want to build here
