@@ -1,0 +1,17 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Pacakge Management
+
+This rule describes which package management libraries should be used for various languages.
+
+## Node.JS
+
+- Always use `pnpm`. Do NOT use `npm` or `yarn`
+
+## Pyton Package Management
+
+- Use `uv` for package management
+- Use `uv` for virtual environment management 
