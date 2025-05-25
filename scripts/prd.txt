@@ -1,0 +1,196 @@
+<context>
+# Overview
+This document outlines the Product Requirements for an API Lifecycle Management and Mock-Centric Contract Testing Platform. The platform aims to solve the complexities of managing API specifications, ensuring reliable contract testing, and improving developer experience by providing a unified, AI-enhanced environment. It is designed for API developers, testers, and teams seeking streamlined collaboration and a single source of truth for their API contracts. The core value lies in simplifying the API development workflow, reducing the barrier to effective contract testing, and providing intelligent assistance through integrated AI capabilities, specialized tooling (WireMock, Schemathesis), and practical interaction capture via HTTP Archive (HAR) files.
+
+# Core Features
+
+1.  **API Specification Management:**
+    *   **What it does:** Enables Create, Read, List, Update, and Delete (CRUD) operations for API specifications (initially OpenAPI, with plans for Swagger, GraphQL). Manages versions and stores specification content.
+    *   **Why it's important:** Provides a centralized, version-controlled repository for API contracts, serving as the single source of truth.
+    *   **How it works at a high level:** A FastAPI backend interacts with a PostgreSQL database, using Pydantic models for data validation and ORM (e.g., SQLAlchemy) for database interactions.
+
+2.  **Mock Service Generation & Management (WireMock Integration):**
+    *   **What it does:** Programmatically configures WireMock stubs based on API specifications. Allows users to clear or reset mock configurations.
+    *   **Why it's important:** Offers reliable and configurable mock endpoints for consumer-side testing, crucial for the mock-centric contract testing approach.
+    *   **How it works at a high level:** A Python module within the FastAPI backend communicates with WireMock's Admin REST API to dynamically set up and manage mock stubs.
+
+3.  **Provider-Side Specification Validation (Schemathesis Integration):**
+    *   **What it does:** Executes schema-based, stateful tests against a provider's live API implementation using a given API specification. Parses and structures the validation results.
+    *   **Why it's important:** Ensures that the actual provider service adheres to its declared contract, a critical part of reliable contract testing.
+    *   **How it works at a high level:** A Python module within the FastAPI backend utilizes the Schemathesis library to run tests and process results.
+
+4.  **HAR File Import & Transformation ("Contract Sketching"):**
+    *   **What it does:** Allows users to upload HTTP Archive (HAR) files. The system parses these files, extracts relevant API interactions, and transforms them into draft API specification snippets and WireMock stub configurations.
+    *   **Why it's important:** Facilitates bootstrapping of API contracts and mock configurations from real-world traffic, significantly lowering the initial setup effort.
+    *   **How it works at a high level:** A FastAPI endpoint handles HAR file uploads. Python-based logic performs parsing and transformation, with AI assistance for generalization of data.
+
+5.  **AI-Powered Assistance:**
+    *   **What it does:** Offers AI capabilities across the lifecycle, including:
+        *   Assisting in API specification design from natural language or by analyzing HAR files.
+        *   Generating intelligent and diverse test data.
+        *   Enhancing API documentation with auto-generated summaries and examples.
+        *   Analyzing contracts and HAR data for anomalies or improvement suggestions.
+        *   Generalizing HAR-derived data and flagging potentially sensitive information.
+    *   **Why it's important:** Streamlines development tasks, improves the quality of artifacts, provides intelligent insights, and enhances overall developer experience.
+    *   **How it works at a high level:** Python libraries (e.g., NLTK, spaCy, Transformers, or LLM SDKs) are integrated directly into the FastAPI backend.
+
+6.  **Workflow Automation & Notifications (n8n Integration):**
+    *   **What it does:** Triggers automated workflows and notifications for key events such as new API specification creation, Schemathesis validation completion, HAR file processing, review requests for AI-generated artifacts, and overall contract validation results.
+    *   **Why it's important:** Keeps users and teams informed of progress and outcomes, facilitating better collaboration and timely actions.
+    *   **How it works at a high level:** The FastAPI backend makes HTTP POST requests to predefined n8n webhook URLs, passing relevant data to trigger specific n8n workflows (e.g., sending email notifications).
+
+7.  **Frontend User Interface (React, Zustand, Tailwind CSS, shadcn/ui):**
+    *   **What it does:** Provides a web-based interface for users to interact with all platform features, including managing API specifications, triggering mock deployments, initiating provider validations, uploading HAR files, and viewing results or AI-generated "contract sketches."
+    *   **Why it's important:** Offers a user-friendly way to access and utilize the platform's capabilities.
+    *   **How it works at a high level:** A React-based Single Page Application (SPA) using Zustand for state management, Tailwind CSS for styling, and shadcn/ui for UI components. It communicates with the FastAPI backend via RESTful APIs.
+
+# User Experience
+
+*   **User Personas:**
+    *   **API Developers/Producers:** Responsible for designing, building, and maintaining APIs. They will use the platform to manage specifications, validate their services, and understand consumer usage.
+    *   **API Consumers:** Develop applications that consume APIs. They will use the platform to discover APIs, understand contracts, and test their applications against mock services.
+    *   **QA Engineers/Testers:** Focus on API quality. They will use the platform for contract testing, validation, and potentially generating test data.
+
+*   **Key User Flows (based on Use Case Diagrams):**
+    1.  **API Specification Creation & Notification:** User creates/uploads an API spec via UI -> Backend saves it -> n8n notifies admin/team.
+    2.  **Mock Service Deployment:** User selects a spec in UI -> Triggers backend to configure WireMock with stubs from the spec -> UI displays mock endpoint.
+    3.  **Provider Validation & Notification:** User selects spec and provides provider URL in UI -> Backend uses Schemathesis to validate provider against spec -> n8n notifies user/team of results -> UI displays results.
+    4.  **HAR Upload & Contract Sketching:** User uploads HAR via UI -> Backend processes HAR (with AI) to generate draft spec snippets & mock stubs -> n8n notifies user (sketches ready) and reviewers -> UI displays sketches.
+    5.  **End-to-End Contract Validation:** Producer uses UI to trigger validation of their live service against the spec (which implies consumers use mocks from this spec) -> Backend orchestrates (primarily Schemathesis) -> n8n notifies producer of outcome -> UI displays contract health.
+
+*   **UI/UX Considerations:**
+    *   **Intuitive Workflow:** Guide users through the API lifecycle and contract testing processes seamlessly.
+    *   **Clear Feedback:** Provide immediate and understandable feedback for actions (e.g., mock deployment status, validation results).
+    *   **Enhanced Developer Experience (DevEx):** Minimize friction, automate repetitive tasks (with AI), and provide actionable insights.
+    *   **Centralized Dashboard:** Offer a clear overview of API specifications, their versions, mock status, validation status, and overall "contract health."
+    *   **Accessibility:** Ensure the UI is accessible and easy to navigate.
+</context>
+<PRD>
+# Technical Architecture
+
+*   **System Components:**
+    *   **Frontend:** React SPA (TypeScript, Zustand, Tailwind CSS, shadcn/ui) running in the user's browser.
+    *   **Backend:** Python FastAPI application (using Uvicorn/Gunicorn), hosting RESTful APIs, integrating AI modules, and HAR processing logic.
+    *   **Database:** PostgreSQL for persistent storage of API specifications, user data, test configurations, results, etc.
+    *   **Mocking Engine:** WireMock running as a separate service, managed via its Admin API by the backend.
+    *   **Provider Validation Tool:** Schemathesis used as a Python library within the FastAPI backend (or potentially CLI).
+    *   **Workflow Automation:** n8n running as a separate service, triggered by webhooks from the backend.
+    *   **Containerization & Orchestration:** Docker for containerizing all services, and Docker Compose for local development and MVP orchestration.
+
+*   **Data Models (Illustrative - to be expanded):**
+    *   `ApiSpecification`: { id, name, version_string, openapi_content (JSONB/Text), created_at, updated_at, user_id }
+    *   `User`: { id, username, email, api_key (for backend auth) }
+    *   `HarUpload`: { id, file_name, raw_content, processed_artifacts_references, user_id, uploaded_at }
+    *   `MockConfiguration`: { id, api_specification_id, wiremock_mapping_json, deployed_at, status }
+    *   `ValidationRun`: { id, api_specification_id, provider_url, schemathesis_results, status, triggered_at, user_id }
+
+*   **APIs and Integrations:**
+    *   **Frontend <-> Backend:** Secure RESTful APIs for all platform functionalities.
+    *   **Backend -> WireMock:** HTTP calls to WireMock's Admin API to manage stubs.
+    *   **Backend -> Schemathesis:** Direct library calls within the Python process.
+    *   **Backend -> PostgreSQL:** SQL queries via an ORM (e.g., SQLAlchemy).
+    *   **Backend -> n8n:** HTTP POST requests to n8n webhook URLs.
+
+*   **Infrastructure Requirements:**
+    *   A Docker-compatible environment for running all containerized services.
+    *   Sufficient compute resources for the backend (especially AI processing), database, and other services.
+    *   Network configuration allowing inter-service communication as defined in Docker Compose.
+
+# Development Roadmap
+
+*   **MVP Requirements (Phased Approach based on `ImplementationOverview.md`):**
+    *   **Phase 0: Foundation & Setup:**
+        *   Monorepo setup (Frontend: React/TS, Backend: FastAPI/Python).
+        *   Docker environment: `Dockerfile` stubs, initial `docker-compose.yml` (backend, frontend, postgres, wiremock, n8n).
+        *   Basic n8n configuration for persistence and placeholder webhook URLs.
+        *   Basic CI pipeline placeholder (linting, build/test stubs).
+    *   **Phase 1: Core Backend - API Specification Management:**
+        *   PostgreSQL schema & ORM models for API Specs & Users. Migrations.
+        *   FastAPI CRUD endpoints for API Specifications.
+        *   n8n Integration: Webhook trigger on new/updated spec -> n8n Workflow 1.1 ("New API Spec Notification" via email).
+        *   Basic API key authentication for backend endpoints.
+    *   **Phase 2: Core Contract Testing Mechanics - Backend Integrations:**
+        *   WireMock Integration: Backend module to programmatically configure WireMock stubs from specs via Admin API.
+        *   Schemathesis Integration: Backend module to use Schemathesis library for provider validation against specs.
+        *   FastAPI Endpoints: For triggering mock setup in WireMock and Schemathesis validation.
+        *   n8n Integration: Webhook on Schemathesis completion -> n8n Workflow 2.1 ("Schemathesis Validation Notification" via email).
+    *   **Phase 3: Basic Frontend - UI for Core Features (Parallel with Phase 2):**
+        *   React project setup (Zustand, Tailwind CSS, shadcn/ui).
+        *   UI components for: Listing specs, displaying spec content, form for creating/uploading specs.
+        *   UI components for: Triggering mock deployment, displaying WireMock base URL, triggering Schemathesis validation, displaying validation results.
+    *   **Phase 4: Enhancing Input & Intelligence - HAR & Basic AI (Backend Focus, can parallel Phase 3):**
+        *   Backend: FastAPI endpoint for HAR upload; Python logic for HAR parsing.
+        *   Backend: Python logic for transforming HAR to draft OpenAPI snippets & WireMock stubs.
+        *   Backend: Basic AI integration (pattern matching, regex, type inference) for generalizing artifacts and flagging sensitive data patterns in HAR.
+        *   n8n Integration: Webhooks on HAR processing -> n8n Workflow 4.1 ("HAR Processed & Sketches Ready" user email), n8n Workflow 4.2 ("Review Request for AI-Generated Artifacts" email to reviewers).
+        *   Frontend: UI for HAR upload, displaying AI-suggested/transformed "contract sketches".
+    *   **Phase 5: Workflow Orchestration & End-to-End MVP:**
+        *   Define "Consumer Test" implicitly (consumers test against WireMock mocks derived from provider spec).
+        *   Backend logic for "Producer Validates Consumer Contracts" workflow (Producer validates their service against spec using Schemathesis, ensuring alignment with mocks).
+        *   n8n Integration: Webhook on contract validation outcome -> n8n Workflow 5.1 ("Contract Validation Results Notification" email).
+        *   Frontend: UI to visualize overall contract health (spec status, mock deployment, Schemathesis results).
+    *   **Phase 6: Packaging, Documentation & Polish (Ongoing, final focus):**
+        *   Docker configuration refinement (image size, build efficiency). Robust `docker-compose.yml`.
+        *   Comprehensive `README.md` (overview, setup, usage). Auto-generated API docs (Swagger UI/ReDoc). n8n workflow documentation.
+        *   Thorough end-to-end testing, bug fixing. Unit/integration test development.
+        *   Code review and refinement.
+
+*   **Future Enhancements (Post-MVP):**
+    *   **Advanced AI Models:** Implement more sophisticated AI for deeper analysis, prediction, and automation.
+    *   **Expanded API Type Support:** Full support for GraphQL, gRPC, AsyncAPI etc.
+    *   **Agentic AI Solutions:** Develop AI agents for automating complex validation, monitoring, and lifecycle tasks.
+    *   **Direct Provider Verification of Consumer Tests:** Allow providers to run consumer-defined tests directly against their live service.
+    *   **Sophisticated Test Data Management:** Advanced features for generating, managing, and linking test data sets to mocks and tests.
+    *   **Dedicated AI Microservices:** Potentially separate compute-intensive AI modules into their own scalable microservices.
+    *   **Enhanced Collaboration Features:** In-app commenting, review workflows, role-based access control.
+    *   **CI/CD Integration:** Deeper integration with popular CI/CD systems for automated testing and deployment.
+
+# Logical Dependency Chain
+
+1.  **Foundation (IO Phase 0):** Docker setup, project scaffolding for backend and frontend. Essential before any functional code.
+2.  **Core Backend API & Data (IO Phase 1):** API specification CRUD operations and database persistence. This forms the data backbone.
+3.  **Backend Mocking & Validation Logic (IO Phase 2):** Integration of WireMock and Schemathesis. These are core functionalities the frontend will expose.
+4.  **Basic Frontend Interaction (IO Phase 3):** UI to manage specifications and trigger core backend mocking/validation. This makes the system usable and provides early visibility.
+5.  **Backend HAR & AI Capabilities (IO Phase 4):** Implement HAR import and initial AI assistance features in the backend.
+6.  **Frontend for HAR & AI (IO Phase 4):** UI to enable HAR uploads and display AI-generated outputs.
+7.  **End-to-End Workflow Implementation (IO Phase 5):** Tie backend logic and frontend UI together for the complete contract validation workflow.
+8.  **n8n Workflow Development:** To be developed in parallel with the backend features that trigger them (e.g., n8n new spec notification alongside backend spec creation).
+9.  **Documentation & Polish (IO Phase 6):** An ongoing effort, with a concentrated push towards the end of the MVP cycle.
+
+# Risks and Mitigations
+
+*   **Technical Challenges:**
+    *   **AI Model Sophistication & Maintenance:**
+        *   *Risk:* AI features may not be sufficiently accurate or may be hard to maintain.
+        *   *Mitigation:* Start with simpler, well-understood AI libraries/techniques for MVP. Focus on clear value propositions for each AI feature. Plan for iterative improvement and model retraining.
+    *   **Mock Accuracy & Maintenance (especially for non-spec-defined logic):**
+        *   *Risk:* Mocks, even WireMock-powered and HAR-informed, might not perfectly replicate all aspects of a live service, leading to false positives/negatives.
+        *   *Mitigation:* Emphasize WireMock's advanced features for stateful behavior and response templating. Rigorously use Schemathesis to ensure provider spec compliance. Develop AI for robust generalization of HAR data into flexible mock rules, not just static stubs.
+    *   **Scalability of Test Execution & AI Processing:**
+        *   *Risk:* The platform might struggle with a large number of API specifications, consumer tests, or computationally intensive AI tasks.
+        *   *Mitigation:* Design backend services for scalability (e.g., asynchronous task processing for AI). Optimize database queries. Consider load testing. Post-MVP, AI modules might become separate services.
+    *   **HAR Data Quality & Security:**
+        *   *Risk:* Uploaded HAR files can be noisy, contain irrelevant data, or include sensitive information (tokens, PII).
+        *   *Mitigation:* Implement robust HAR parsing and filtering. Develop AI-powered sanitization and generalization features to identify and mask/remove sensitive data before it's used to generate artifacts. Provide clear user guidance on HAR preparation.
+
+*   **MVP Scope & Execution:**
+    *   *Risk:* MVP scope creep or delays in delivering core functionalities.
+    *   *Mitigation:* Adhere strictly to the phased development roadmap. Prioritize core differentiators (mock-centric testing, AI assistance, HAR import). Regular review and adjustment of priorities.
+
+*   **Resource Constraints (Time, Personnel, Budget):**
+    *   *Risk:* Limited resources may impact development speed or feature completeness.
+    *   *Mitigation:* Leverage existing open-source libraries and tools (WireMock, Schemathesis, n8n, Python AI ecosystem) to accelerate development. Focus on delivering a high-value MVP that can attract further investment or resources.
+
+# Appendix
+
+*   **Key Research Findings (Summary from `docs/research/Report.md`):**
+    *   The proposed unified API lifecycle management platform with mock-centric contract testing, enhanced by AI, specialized tooling (WireMock, Schemathesis), and HAR import, is a viable and compelling concept.
+    *   The innovative contract testing approach offers significant potential for simplifying workflows and improving developer experience.
+    *   Critical success factors include the sophistication of AI models, accuracy and maintainability of mocks, comprehensive producer-side validation (beyond just spec compliance), and scalability.
+    *   Recommendations include prioritizing core differentiators, a phased rollout focusing initially on REST/OpenAPI with essential AI and tooling, and continuously refining the contract testing model for robustness.
+
+*   **Technical Specifications & Implementation Details:**
+    *   For detailed component technology stack and operational details, refer to `docs/mvp/TechStack.md`.
+    *   For the phased technical deliverables and MVP implementation plan, refer to `docs/mvp/ImplementationOverview.md`.
+    *   For visual representations of user interaction flows, refer to `docs/mvp/UseCaseDiagrams.md`.
+</PRD> 
