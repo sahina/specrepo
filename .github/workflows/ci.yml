@@ -200,7 +200,7 @@ jobs:
       - name: Install dependencies
         # Assuming linters (flake8, black) are not needed for placeholder tests
         # If tests require them, they should be in requirements.txt or installed here
-        run: uv pip install -r requirements.txt
+        run: uv pip install --system -r requirements.txt
 
       - name: Run Placeholder Tests
         run: uv run echo "Backend tests would run here"
