@@ -76,7 +76,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv pip install --system -r requirements.txt
+          uv pip install --system -e .[dev]
 
       - name: Run ruff linting
         run: |
@@ -219,8 +219,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv pip install --system -r requirements.txt
-          uv pip install --system pytest pytest-asyncio
+          uv pip install --system -e .[dev]
 
       - name: Wait for PostgreSQL
         run: |
