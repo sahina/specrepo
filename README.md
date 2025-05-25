@@ -1,6 +1,6 @@
-# Project Title
+# SpecRepo
 
-A brief description of the project.
+A project for managing and collaborating on specifications using a web interface and AI-powered task management.
 
 ## Architecture Overview
 
@@ -10,15 +10,16 @@ A brief description of the project.
 
 ### Prerequisites
 
-- Prerequisite 1
-- Prerequisite 2
+- Node.js (with pnpm)
+- Python (with uv)
+- Git
 
 ### Installation
 
 1. Clone the repo
 
    ```sh
-   git clone https://example.com/your_project.git
+   git clone https://github.com/sahina/specrepo.git # Replace with actual repo URL
    ```
 
 2. Install dependencies
