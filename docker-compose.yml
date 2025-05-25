@@ -1,0 +1,90 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./backend:/app
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres:5432/appdb
+      # Add other backend environment variables here
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://0.0.0.0:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules # Prevent host node_modules from overwriting container
+    environment:
+      - CHOKIDAR_USEPOLLING=true # For hot-reloading in some environments
+      # Add other frontend environment variables here
+    networks:
+      - app-network
+    depends_on:
+      - backend
+
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=appdb
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d appdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  wiremock:
+    image: wiremock/wiremock:latest # Using the specific tag from task description
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./wiremock/mappings:/home/wiremock/mappings # Example for custom mappings
+      - ./wiremock/files:/home/wiremock/__files # Example for custom files
+    networks:
+      - app-network
+    command: ["--verbose"] # Optional: more logs
+
+  n8n:
+    image: n8nio/n8n:latest
+    ports:
+      - "5679:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    environment:
+      - GENERIC_TIMEZONE=America/Los_Angeles # Example timezone
+      # Add other n8n environment variables as needed
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+  n8n_data:
+
+networks:
+  app-network:
+    driver: bridge
