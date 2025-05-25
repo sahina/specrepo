@@ -76,8 +76,8 @@ jobs:
 
       - name: Install dependencies and linters
         run: |
-          uv pip install -r requirements.txt
-          uv pip install flake8 black
+          uv pip install --system -r requirements.txt
+          uv pip install --system flake8 black
 
       - name: Run linters
         run: |
