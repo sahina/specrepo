@@ -74,15 +74,17 @@ jobs:
           path: ~/.cache/uv
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt', '**/pyproject.toml') }}
 
-      - name: Install dependencies and linters
+      - name: Install dependencies
         run: |
           uv pip install --system -r requirements.txt
-          uv pip install --system flake8 black
 
-      - name: Run linters
+      - name: Run ruff linting
         run: |
-          uv run flake8 --exclude .venv .
-          uv run black --check --exclude "\.venv" .
+          uv tool run ruff check .
+
+      - name: Run ruff formatting check
+        run: |
+          uv tool run ruff format --check .
 
   build-frontend:
     name: Build Frontend Docker Image

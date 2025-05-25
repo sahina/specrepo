@@ -17,13 +17,21 @@ def test_create_user(db_session, models_fixture):
 
 
 def test_read_user(db_session, models_fixture):
-    user = db_session.query(models_fixture.User).filter_by(username="testuser").first()
+    user = (
+        db_session.query(models_fixture.User)
+        .filter_by(username="testuser")
+        .first()
+    )
     assert user is not None
     assert user.email == "test@example.com"
 
 
 def test_update_user(db_session, models_fixture):
-    user = db_session.query(models_fixture.User).filter_by(username="testuser").first()
+    user = (
+        db_session.query(models_fixture.User)
+        .filter_by(username="testuser")
+        .first()
+    )
     assert user is not None
     user.email = "updated@example.com"
     db_session.commit()
@@ -32,12 +40,18 @@ def test_update_user(db_session, models_fixture):
 
 
 def test_delete_user(db_session, models_fixture):
-    user = db_session.query(models_fixture.User).filter_by(username="testuser").first()
+    user = (
+        db_session.query(models_fixture.User)
+        .filter_by(username="testuser")
+        .first()
+    )
     assert user is not None
     db_session.delete(user)
     db_session.commit()
     deleted_user = (
-        db_session.query(models_fixture.User).filter_by(username="testuser").first()
+        db_session.query(models_fixture.User)
+        .filter_by(username="testuser")
+        .first()
     )
     assert deleted_user is None
 

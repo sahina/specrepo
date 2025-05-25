@@ -10,7 +10,20 @@ dependencies = ["fastapi>=0.110.0", "uvicorn[standard]>=0.27.1"]
 dev = ["ruff>=0.3.2", "pytest>=7.4.4"]
 
 [tool.ruff]
-# Optional: Add ruff specific configurations here if needed
+# Enable line length checks and other rules to match flake8 behavior
+line-length = 79
+
+[tool.ruff.lint]
+select = [
+    "E", # pycodestyle errors
+    "W", # pycodestyle warnings
+    "F", # pyflakes
+    "I", # isort
+]
+ignore = []
+
+[tool.ruff.format]
+# Use the same line length for formatting
 
 [build-system]
 requires = ["hatchling"]

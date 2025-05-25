@@ -1,7 +1,8 @@
-from app.db.base_class import Base
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+
+from app.db.base_class import Base
 
 
 class User(Base):
@@ -16,9 +17,13 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    api_specifications = relationship("APISpecification", back_populates="owner")
+    api_specifications = relationship(
+        "APISpecification", back_populates="owner"
+    )
     har_uploads = relationship("HARUpload", back_populates="uploader")
-    validation_runs = relationship("ValidationRun", back_populates="trigger_user")
+    validation_runs = relationship(
+        "ValidationRun", back_populates="trigger_user"
+    )
 
 
 class APISpecification(Base):
@@ -38,7 +43,9 @@ class APISpecification(Base):
     mock_configurations = relationship(
         "MockConfiguration", back_populates="api_specification"
     )
-    validation_runs = relationship("ValidationRun", back_populates="api_specification")
+    validation_runs = relationship(
+        "ValidationRun", back_populates="api_specification"
+    )
 
 
 class HARUpload(Base):
@@ -49,7 +56,9 @@ class HARUpload(Base):
     raw_content = Column(
         JSON, nullable=False
     )  # Assuming HAR content is JSON; consider TEXT if large
-    processed_artifacts_references = Column(JSON)  # Consider JSONB for PostgreSQL
+    processed_artifacts_references = Column(
+        JSON
+    )  # Consider JSONB for PostgreSQL
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -94,5 +103,5 @@ class ValidationRun(Base):
 
 
 # Ensure all models are imported here so Alembic can find them.
-# This can also be managed in app.db.base, by importing all model modules there. # Ensure all models are imported here so Alembic can find them.
-# This can also be managed in app.db.base, by importing all model modules there.
+# This can also be managed in app.db.base, by importing all model modules
+# there.
