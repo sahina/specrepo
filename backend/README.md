@@ -1,4 +1,52 @@
-# Running Tests
+# Backend Development Guide
+
+## Code Quality & Linting
+
+This project uses [Ruff](https://docs.astral.sh/ruff/) for linting and code formatting. Ruff is a fast Python linter and formatter that combines the functionality of flake8, black, isort, and many other tools.
+
+### Running the Linter
+
+To check for linting issues:
+
+```bash
+cd backend
+uv tool run ruff check .
+```
+
+To automatically fix linting issues:
+
+```bash
+uv tool run ruff check . --fix
+```
+
+### Code Formatting
+
+To check if code is properly formatted:
+
+```bash
+uv tool run ruff format --check .
+```
+
+To automatically format code:
+
+```bash
+uv tool run ruff format .
+```
+
+### Running All Quality Checks
+
+To run both linting and formatting checks:
+
+```bash
+cd backend
+uv tool run ruff check . && uv tool run ruff format --check .
+```
+
+### Configuration
+
+Ruff configuration is defined in `pyproject.toml`. The project follows standard Python conventions with Ruff's default settings.
+
+## Running Tests
 
 To run the automated tests for the backend:
 

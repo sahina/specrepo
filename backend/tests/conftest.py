@@ -10,7 +10,7 @@ from alembic import command
 from alembic.config import Config
 from app.db.base_class import Base
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import text
 
 # Determine the database URL
