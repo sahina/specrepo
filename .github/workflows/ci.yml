@@ -82,7 +82,7 @@ jobs:
       - name: Run linters
         run: |
           uv run flake8 --exclude .venv .
-          uv run black --check --exclude "\.venv"
+          uv run black --check --exclude "\.venv" .
 
   build-frontend:
     name: Build Frontend Docker Image
