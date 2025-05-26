@@ -2,13 +2,11 @@ import asyncio
 import json
 import os
 from datetime import datetime
-from typing import Any, Dict
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
 
-from app.models import APISpecification
 from app.services.n8n_notifications import (
     N8nNotificationService,
     N8nWebhookPayload,
@@ -33,7 +31,8 @@ class TestN8nWorkflowIntegration:
             "openapi": "3.0.0",
             "info": {
                 "title": "Test API",
-                "description": "A comprehensive test API for integration testing",
+                "description": "A comprehensive test API for integration "
+                "testing",
                 "version": "1.0.0",
                 "contact": {
                     "name": "API Support",
@@ -59,7 +58,8 @@ class TestN8nWorkflowIntegration:
                                         "schema": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/components/schemas/User"
+                                                "$ref": "#/components/schemas/"
+                                                "User"
                                             },
                                         }
                                     }
@@ -75,7 +75,8 @@ class TestN8nWorkflowIntegration:
                             "content": {
                                 "application/json": {
                                     "schema": {
-                                        "$ref": "#/components/schemas/CreateUser"
+                                        "$ref": "#/components/schemas/"
+                                        "CreateUser"
                                     }
                                 }
                             },
@@ -191,10 +192,12 @@ class TestN8nWorkflowIntegration:
                     print("✅ Webhook endpoint is working correctly")
                 else:
                     print(
-                        "⚠️ Webhook returned 404 - workflow may not be active or imported"
+                        "⚠️ Webhook returned 404 - workflow may not be "
+                        "active or imported"
                     )
                     print(
-                        "💡 Follow setup instructions to import and activate workflow"
+                        "💡 Follow setup instructions to import and activate "
+                        "workflow"
                     )
 
         except httpx.RequestError as e:
@@ -297,7 +300,8 @@ class TestN8nWorkflowIntegration:
                 "openapi": "3.0.0",
                 "info": {
                     "title": "Complex API",
-                    "description": "An API with complex schemas and multiple endpoints",
+                    "description": "An API with complex schemas and multiple "
+                    "endpoints",
                     "version": "2.0.0",
                 },
                 "components": {
@@ -333,7 +337,8 @@ class TestN8nWorkflowIntegration:
                                     "content": {
                                         "application/json": {
                                             "schema": {
-                                                "$ref": "#/components/schemas/User"
+                                                "$ref": "#/components/schemas/"
+                                                "User"
                                             }
                                         }
                                     },
@@ -386,9 +391,9 @@ class TestN8nWorkflowIntegration:
         print("   backend:")
         print("     environment:")
         print(
-            f"       - N8N_WEBHOOK_URL=http://n8n:5678/webhook-test/api-spec-notification"
+            "       - N8N_WEBHOOK_URL=http://n8n:5678/webhook-test/api-spec-notification"
         )
-        print(f"       - N8N_WEBHOOK_SECRET=specrepo-n8n-secret-2024")
+        print("       - N8N_WEBHOOK_SECRET=specrepo-n8n-secret-2024")
         print(f"       - N8N_MAX_RETRIES={max_retries}")
         print(f"       - N8N_RETRY_DELAY_SECONDS={retry_delay}")
         print(f"       - N8N_TIMEOUT_SECONDS={timeout}")
@@ -427,7 +432,9 @@ class TestN8nWorkflowIntegration:
             with patch("httpx.AsyncClient") as mock_client:
                 mock_response = MagicMock()
                 mock_response.status_code = 200
-                mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
+                (
+                    mock_client.return_value.__aenter__.return_value.post.return_value
+                ) = mock_response
 
                 result = await service.send_specification_created(mock_spec)
                 assert isinstance(result, bool)

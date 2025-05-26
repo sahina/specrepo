@@ -63,7 +63,8 @@ async def generate_stubs(
     Generate WireMock stubs from an API specification.
 
     - **specification_id**: ID of the API specification to use
-    - **clear_existing**: Whether to clear existing stubs before generating new ones
+    - **clear_existing**: Whether to clear existing stubs before generating
+      new ones
     """
     try:
         # Get the API specification
@@ -74,7 +75,8 @@ async def generate_stubs(
         if not specification:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"API specification with ID {request.specification_id} not found",
+                detail=f"API specification with ID {request.specification_id} "
+                f"not found",
             )
 
         # Initialize WireMock service
@@ -103,7 +105,8 @@ async def generate_stubs(
         )
 
         return WireMockGenerateResponse(
-            message=f"Successfully generated {len(created_stubs)} WireMock stubs",
+            message=f"Successfully generated {len(created_stubs)} WireMock "
+            f"stubs",
             stubs_created=len(created_stubs),
             stubs=stub_responses,
         )
