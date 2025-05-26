@@ -605,7 +605,8 @@ class TestWireMockIntegrationService:
         anyio.run(_test)
 
     def test_generate_stubs_handles_errors(self):
-        """Test that stub generation handles individual endpoint errors gracefully."""
+        """Test that stub generation handles individual endpoint errors "
+        "gracefully."""
 
         async def _test():
             openapi_content = {

@@ -1,7 +1,6 @@
 import json
 import logging
 from typing import Any, Dict, List, Optional, Union
-from urllib.parse import urljoin
 
 import httpx
 import yaml
@@ -518,7 +517,8 @@ class WireMockIntegrationService:
             endpoints = self.parser.extract_endpoints(openapi_spec)
 
             logger.info(
-                f"Extracted {len(endpoints)} endpoints from OpenAPI specification"
+                f"Extracted {len(endpoints)} endpoints from OpenAPI "
+                f"specification"
             )
 
             # Clear existing stubs if requested
@@ -540,7 +540,8 @@ class WireMockIntegrationService:
                     )
                 except Exception as e:
                     logger.error(
-                        f"Failed to create stub for {endpoint.method} {endpoint.path}: {e}"
+                        f"Failed to create stub for {endpoint.method} "
+                        f"{endpoint.path}: {e}"
                     )
                     # Continue with other endpoints
 
