@@ -9,6 +9,12 @@ services:
       - ./backend:/app
     environment:
       - DATABASE_URL=postgresql://user:password@postgres:5432/appdb
+      # n8n Integration Configuration
+      - N8N_WEBHOOK_URL=http://n8n:5678/webhook-test/api-spec-notification
+      - N8N_WEBHOOK_SECRET=specrepo-n8n-secret-2024
+      - N8N_MAX_RETRIES=3
+      - N8N_RETRY_DELAY_SECONDS=5
+      - N8N_TIMEOUT_SECONDS=30
       # Add other backend environment variables here
     depends_on:
       postgres:
@@ -74,7 +80,11 @@ services:
     volumes:
       - n8n_data:/home/node/.n8n
     environment:
-      - GENERIC_TIMEZONE=America/Los_Angeles # Example timezone
+      - GENERIC_TIMEZONE=America/New_York # Example timezone
+      - N8N_API_KEY=specrepo-n8n-api-key-2024
+      - N8N_DISABLE_UI=false
+      - N8N_BASIC_AUTH_ACTIVE=false
+      - N8N_WEBHOOK_URL=http://localhost:5679/
       # Add other n8n environment variables as needed
     networks:
       - app-network
