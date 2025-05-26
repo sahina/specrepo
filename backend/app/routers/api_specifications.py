@@ -1,7 +1,14 @@
 import logging
 import math
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Query,
+    status,
+)
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
@@ -17,6 +24,7 @@ from app.schemas import (
     APISpecificationUpdate,
 )
 from app.services.api_specifications import APISpecificationService
+from app.services.n8n_notifications import n8n_service
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +70,7 @@ def get_filters(
 )
 def create_specification(
     spec_data: APISpecificationCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> APISpecificationResponse:
@@ -88,6 +97,12 @@ def create_specification(
         specification = APISpecificationService.create_specification(
             db, spec_data, current_user
         )
+
+        # Send n8n notification in background
+        background_tasks.add_task(
+            n8n_service.send_specification_created, specification
+        )
+
         return APISpecificationResponse.model_validate(specification)
 
     except HTTPException:
@@ -199,6 +214,7 @@ def get_specification(
 def update_specification(
     spec_id: int,
     spec_data: APISpecificationUpdate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> APISpecificationResponse:
@@ -240,6 +256,11 @@ def update_specification(
 
         specification = APISpecificationService.update_specification(
             db, spec_id, spec_data, current_user
+        )
+
+        # Send n8n notification in background
+        background_tasks.add_task(
+            n8n_service.send_specification_updated, specification
         )
 
         return APISpecificationResponse.model_validate(specification)

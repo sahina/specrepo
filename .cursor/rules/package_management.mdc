@@ -3,9 +3,13 @@ description:
 globs: 
 alwaysApply: true
 ---
-# Pacakge Management
+# Package Management
 
 This rule describes which package management libraries should be used for various languages.
+
+## General
+
+- Use `zsh` for shell operations
 
 ## Node.JS
 
@@ -15,3 +19,5 @@ This rule describes which package management libraries should be used for variou
 
 - Use `uv` for package management
 - Use `uv` for virtual environment management 
+- Make sure you activate virtual environment using `uv`
+- Always use `uv` for running python in the active virtual environment
