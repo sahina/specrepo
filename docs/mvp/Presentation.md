@@ -3,7 +3,7 @@ marp: true
 theme: uncover
 ---
 
-## SpecRepo: Revolutionizing the API Lifecycle
+# SpecRepo: Revolutionizing the API Lifecycle
 
 A Unified, AI-Augmented Platform for Specification Management & Mock-Centric Contract Testing
 

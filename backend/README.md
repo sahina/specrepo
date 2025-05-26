@@ -102,7 +102,7 @@ The backend provides a complete CRUD API for managing API specifications. All en
 
 #### Base URL
 
-```
+```text
 /api/specifications
 ```
 
