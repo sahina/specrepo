@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.dependencies import get_current_user
 from app.middleware import RateLimitMiddleware
 from app.models import User
+from app.routers import api_specifications
 
 # Configure logging
 logging.basicConfig(
@@ -21,6 +22,9 @@ app = FastAPI(title="SpecRepo API", version="1.0.0")
 
 # Add rate limiting middleware
 app.add_middleware(RateLimitMiddleware, max_attempts=5, window_seconds=300)
+
+# Include routers
+app.include_router(api_specifications.router)
 
 
 @app.get("/health")
