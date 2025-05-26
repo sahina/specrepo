@@ -40,7 +40,7 @@ This directory contains n8n workflow configurations for the SpecRepo platform. T
 - Sends email to configured recipients
 - Returns success response to backend
 
-**Email Recipients**: Currently configured to send to `admin@specrepo.com`. Update the workflow configuration to change recipients.
+**Email Recipients**: Currently configured to send to `altug@aecoffice.com`. Update the workflow configuration to change recipients.
 
 ## Setup Instructions
 
