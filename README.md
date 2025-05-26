@@ -95,3 +95,25 @@ Alternatively, you can run the entire application stack using Docker Compose:
     ```sh
     docker-compose down -v
     ```
+
+## Testing
+
+### Backend Tests
+
+The backend includes a suite of automated tests using `pytest` for database migrations, SQLAlchemy models (CRUD operations, constraints), and potentially API endpoints in the future.
+
+For detailed instructions on how to set up the test environment and run these tests, please refer to the [backend/README.md](backend/README.md).
+
+**Quick Start (from project root):**
+
+1. Ensure Docker and Docker Compose are running.
+2. Ensure the test database (`appdb_test`) is created (see `backend/README.md` for details).
+3. Run tests:
+
+    ```bash
+    cd backend
+    # Activate your Python virtual environment if not already active
+    # e.g., source ../.venv/bin/activate
+    pytest
+    cd ..
+    ```

@@ -74,15 +74,17 @@ jobs:
           path: ~/.cache/uv
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt', '**/pyproject.toml') }}
 
-      - name: Install dependencies and linters
+      - name: Install dependencies
         run: |
-          uv pip install -r requirements.txt
-          uv pip install flake8 black
+          uv pip install --system -e .[dev]
 
-      - name: Run linters
+      - name: Run ruff linting
         run: |
-          uv run flake8 .
-          uv run black --check .
+          uv tool run ruff check .
+
+      - name: Run ruff formatting check
+        run: |
+          uv tool run ruff format --check .
 
   build-frontend:
     name: Build Frontend Docker Image
@@ -174,9 +176,27 @@ jobs:
     name: Test Backend
     runs-on: ubuntu-latest
     needs: build-backend # Depends on build-backend
+    env:
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpassword
+      POSTGRES_DB: appdb_test
     defaults:
       run:
         working-directory: ./backend
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -198,10 +218,18 @@ jobs:
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt', '**/pyproject.toml') }}
 
       - name: Install dependencies
-        # Assuming linters (flake8, black) are not needed for placeholder tests
-        # If tests require them, they should be in requirements.txt or installed here
-        run: uv pip install -r requirements.txt
+        run: |
+          uv pip install --system -e .[dev]
 
-      - name: Run Placeholder Tests
-        run: uv run echo "Backend tests would run here"
+      - name: Wait for PostgreSQL
+        run: |
+          until pg_isready -h localhost -p 5432 -U ${{ env.POSTGRES_USER }}; do
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
+
+      - name: Run tests
+        env:
+          TEST_DATABASE_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@localhost:5432/${{ env.POSTGRES_DB }}
+        run: uv run pytest tests/ -v
 # End of jobs
