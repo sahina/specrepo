@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["ruff>=0.3.2", "pytest>=7.4.4"]
+dev = ["ruff>=0.3.2", "pytest>=7.4.4", "httpx>=0.24.0"]
 
 [tool.ruff]
 # Enable line length checks and other rules to match flake8 behavior
