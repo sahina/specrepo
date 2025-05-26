@@ -214,6 +214,7 @@ Authorization: Bearer <api_key>
 - **Sorting**: Sort by name, version, creation date, or update date
 - **Duplicate Prevention**: Prevents duplicate name/version combinations per user
 - **Comprehensive Error Handling**: Proper HTTP status codes and error messages
+- **n8n Integration**: Automatic webhook notifications to n8n when specifications are created or updated
 
 #### Testing
 
@@ -231,3 +232,71 @@ Run the tests with:
 ```bash
 pytest tests/test_api_specifications.py -v
 ```
+
+## n8n Integration
+
+The backend includes integration with n8n for workflow automation and notifications. When API specifications are created or updated, the system automatically sends webhook notifications to configured n8n workflows.
+
+### n8n Features
+
+- **Automatic Notifications**: Webhooks are triggered when API specifications are created or updated
+- **Configurable Endpoints**: Support for different webhook URLs for different event types
+- **Error Handling**: Comprehensive retry logic with configurable attempts and delays
+- **Security**: Optional webhook secret validation
+- **Background Processing**: Notifications are sent asynchronously to avoid blocking API responses
+
+### n8n Configuration
+
+Configure n8n integration using environment variables:
+
+#### Required Variables
+
+- `N8N_WEBHOOK_URL`: The n8n webhook URL to send notifications to
+
+#### Optional Variables
+
+- `N8N_WEBHOOK_SECRET`: Secret token for webhook authentication (recommended)
+- `N8N_MAX_RETRIES`: Maximum number of retry attempts (default: 3)
+- `N8N_RETRY_DELAY_SECONDS`: Delay between retry attempts in seconds (default: 5)
+- `N8N_TIMEOUT_SECONDS`: HTTP request timeout in seconds (default: 30)
+
+### Webhook Payload
+
+The webhook payload includes the following information:
+
+```json
+{
+  "event_type": "created|updated",
+  "specification_id": 123,
+  "specification_name": "My API",
+  "version_string": "v1.0",
+  "user_id": 456,
+  "timestamp": "2024-01-01T00:00:00Z",
+  "openapi_content": {
+    "openapi": "3.0.0",
+    "info": {"title": "My API"},
+    "paths": {}
+  }
+}
+```
+
+### n8n Testing
+
+The n8n integration is thoroughly tested with 25+ test cases covering:
+
+- Service initialization and configuration
+- Webhook payload creation and validation
+- Success and failure scenarios
+- Retry logic and error handling
+- Integration with API endpoints
+- Background task execution
+
+Run the n8n integration tests with:
+
+```bash
+pytest tests/test_n8n_notifications.py -v
+```
+
+### Disabling n8n Integration
+
+If `N8N_WEBHOOK_URL` is not set or is empty, the n8n integration will be automatically disabled. The API will continue to function normally without sending notifications.
