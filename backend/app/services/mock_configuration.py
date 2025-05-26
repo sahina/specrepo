@@ -45,7 +45,8 @@ class MockConfigurationService:
         db.refresh(mock_config)
 
         logger.info(
-            f"Created mock configuration {mock_config.id} for API specification {api_specification_id}"
+            f"Created mock configuration {mock_config.id} for API "
+            f"specification {api_specification_id}"
         )
 
         return mock_config

@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -54,7 +54,10 @@ class MockResetResponse(BaseModel):
     response_model=MockDeployResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Deploy API Specification to WireMock",
-    description="Deploy an API specification to WireMock and store deployment status in database.",
+    description=(
+        "Deploy an API specification to WireMock and store deployment status "
+        "in database."
+    ),
 )
 async def deploy_mock(
     request: MockDeployRequest,
@@ -65,7 +68,8 @@ async def deploy_mock(
     Deploy API specification to WireMock.
 
     - **specification_id**: ID of the API specification to deploy
-    - **clear_existing**: Whether to clear existing WireMock stubs before deployment
+    - **clear_existing**: Whether to clear existing WireMock stubs before
+      deployment
     """
     try:
         # Get the API specification
@@ -76,7 +80,10 @@ async def deploy_mock(
         if not specification:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"API specification with ID {request.specification_id} not found",
+                detail=(
+                    f"API specification with ID {request.specification_id} "
+                    "not found"
+                ),
             )
 
         # Initialize WireMock service
@@ -126,11 +133,15 @@ async def deploy_mock(
 
         logger.info(
             f"Successfully deployed API specification {specification.name} "
-            f"v{specification.version_string} to WireMock with {len(created_stubs)} stubs"
+            f"v{specification.version_string} to WireMock with "
+            f"{len(created_stubs)} stubs"
         )
 
         return MockDeployResponse(
-            message=f"Successfully deployed {specification.name} v{specification.version_string} to WireMock",
+            message=(
+                f"Successfully deployed {specification.name} "
+                f"v{specification.version_string} to WireMock"
+            ),
             configuration_id=mock_config.id,
             stubs_created=len(created_stubs),
             status="active",
@@ -150,7 +161,9 @@ async def deploy_mock(
     "/reset",
     response_model=MockResetResponse,
     summary="Reset All WireMock Configurations",
-    description="Reset all WireMock configurations and update database status.",
+    description=(
+        "Reset all WireMock configurations and update database status."
+    ),
 )
 async def reset_mocks(
     db: Session = Depends(get_db),
@@ -198,15 +211,19 @@ async def reset_mocks(
         if not wiremock_reset_success:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Database configurations reset successfully, but WireMock reset failed",
+                detail=(
+                    "Database configurations reset successfully, but WireMock "
+                    "reset failed"
+                ),
             )
 
         logger.info(
-            f"Successfully reset {configurations_reset} mock configurations and WireMock"
+            f"Successfully reset {configurations_reset} mock configurations "
+            "and WireMock"
         )
 
         return MockResetResponse(
-            message=f"Successfully reset all mock configurations",
+            message="Successfully reset all mock configurations",
             configurations_reset=configurations_reset,
             wiremock_reset=wiremock_reset_success,
         )
@@ -275,8 +292,8 @@ async def get_mock_status(
             configurations_data.append(config_data)
 
         logger.info(
-            f"Retrieved status for {len(all_configurations)} mock configurations "
-            f"({len(active_configurations)} active)"
+            f"Retrieved status for {len(all_configurations)} mock "
+            f"configurations ({len(active_configurations)} active)"
         )
 
         return MockStatusResponse(
