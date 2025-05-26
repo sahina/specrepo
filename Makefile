@@ -239,8 +239,8 @@ health-check: ## Check health of all services
 	@docker-compose exec -T postgres pg_isready -U user -d appdb >/dev/null 2>&1 && echo "✅ Postgres is healthy" || echo "❌ Postgres is not responding"
 	@echo "N8N: http://localhost:5679"
 	@curl -f http://localhost:5679 >/dev/null 2>&1 && echo "✅ N8N is healthy" || echo "❌ N8N is not responding"
-	@echo "Wiremock: http://localhost:8081"
-	@curl -f http://localhost:8081 >/dev/null 2>&1 && echo "✅ Wiremock is healthy" || echo "❌ Wiremock is not responding"
+	@echo "Wiremock: http://localhost:8081/__admin/"
+	@curl -f http://localhost:8081/__admin/ >/dev/null 2>&1 && echo "✅ Wiremock is healthy" || echo "❌ Wiremock is not responding"
 
 # =============================================================================
 # CI/CD and Production
