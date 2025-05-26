@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class APISpecificationBase(BaseModel):
@@ -23,7 +23,8 @@ class APISpecificationBase(BaseModel):
         ..., description="OpenAPI specification content as JSON"
     )
 
-    @validator("openapi_content")
+    @field_validator("openapi_content")
+    @classmethod
     def validate_openapi_content(cls, v):
         """Basic validation for OpenAPI content."""
         if not isinstance(v, dict):
@@ -54,7 +55,8 @@ class APISpecificationUpdate(BaseModel):
     version_string: Optional[str] = Field(None, min_length=1, max_length=50)
     openapi_content: Optional[Dict[str, Any]] = None
 
-    @validator("openapi_content")
+    @field_validator("openapi_content")
+    @classmethod
     def validate_openapi_content(cls, v):
         """Basic validation for OpenAPI content."""
         if v is None:
@@ -83,8 +85,7 @@ class APISpecificationResponse(APISpecificationBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class APISpecificationListResponse(BaseModel):
@@ -119,7 +120,8 @@ class APISpecificationFilters(BaseModel):
     page: int = Field(1, ge=1, description="Page number")
     size: int = Field(10, ge=1, le=100, description="Page size")
 
-    @validator("sort_by")
+    @field_validator("sort_by")
+    @classmethod
     def validate_sort_by(cls, v):
         """Validate sort_by field."""
         allowed_fields = ["name", "version_string", "created_at", "updated_at"]
@@ -129,7 +131,8 @@ class APISpecificationFilters(BaseModel):
             )
         return v
 
-    @validator("sort_order")
+    @field_validator("sort_order")
+    @classmethod
     def validate_sort_order(cls, v):
         """Validate sort_order field."""
         if v.lower() not in ["asc", "desc"]:

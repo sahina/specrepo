@@ -88,7 +88,7 @@ def create_specification(
         specification = APISpecificationService.create_specification(
             db, spec_data, current_user
         )
-        return APISpecificationResponse.from_orm(specification)
+        return APISpecificationResponse.model_validate(specification)
 
     except HTTPException:
         raise
@@ -134,7 +134,7 @@ def list_specifications(
 
         return APISpecificationListResponse(
             items=[
-                APISpecificationResponse.from_orm(spec)
+                APISpecificationResponse.model_validate(spec)
                 for spec in specifications
             ],
             total=total,
@@ -178,7 +178,7 @@ def get_specification(
                 detail=f"API specification with ID {spec_id} not found",
             )
 
-        return APISpecificationResponse.from_orm(specification)
+        return APISpecificationResponse.model_validate(specification)
 
     except HTTPException:
         raise
@@ -220,7 +220,7 @@ def update_specification(
             )
 
         # Check for name/version conflicts if updating name or version
-        update_data = spec_data.dict(exclude_unset=True)
+        update_data = spec_data.model_dump(exclude_unset=True)
         if "name" in update_data or "version_string" in update_data:
             new_name = update_data.get("name", existing_spec.name)
             new_version = update_data.get(
@@ -242,7 +242,7 @@ def update_specification(
             db, spec_id, spec_data, current_user
         )
 
-        return APISpecificationResponse.from_orm(specification)
+        return APISpecificationResponse.model_validate(specification)
 
     except HTTPException:
         raise

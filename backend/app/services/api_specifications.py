@@ -157,7 +157,7 @@ class APISpecificationService:
             return None
 
         # Update only provided fields
-        update_data = spec_data.dict(exclude_unset=True)
+        update_data = spec_data.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(db_spec, field, value)
 

@@ -98,7 +98,7 @@ This will discover and execute all tests within the `backend/tests` directory.
 
 ### API Specifications
 
-The backend provides a complete CRUD API for managing API specifications. All endpoints require authentication via API key.
+The backend provides a complete CRUD API for managing API specifications. All endpoints require **authentication** via API key.
 
 #### Base URL
 
