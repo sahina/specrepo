@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>SpecRepo: Revolutionizing the API Lifecycle</title>
+    <meta charset="utf-8" />
+    <style>
+      @import url(https://fonts.googleapis.com/css?family=Yanone+Kaffeesatz);
+      @import url(https://fonts.googleapis.com/css?family=Droid+Serif:400,700,400italic);
+      @import url(https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700,400italic);
+
+      body {
+        font-family: "Droid Serif";
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      }
+
+      h1,
+      h2,
+      h3 {
+        font-family: "Yanone Kaffeesatz";
+        font-weight: normal;
+        color: #2c3e50;
+      }
+
+      h1 {
+        font-size: 3em;
+        text-align: center;
+        margin-bottom: 0.5em;
+      }
+
+      h2 {
+        font-size: 2.5em;
+        text-align: center;
+        margin-bottom: 0.8em;
+        color: #34495e;
+      }
+
+      h3 {
+        font-size: 1.8em;
+        color: #2980b9;
+      }
+
+      .remark-code,
+      .remark-inline-code {
+        font-family: "Ubuntu Mono";
+        background: #f8f9fa;
+        padding: 2px 4px;
+        border-radius: 3px;
+      }
+
+      .remark-slide-content {
+        background: white;
+        padding: 2em;
+        border-radius: 10px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        font-size: 1.2em;
+        line-height: 1.6;
+      }
+
+      .remark-slide-content h1 {
+        margin-top: 0;
+      }
+
+      .center {
+        text-align: center;
+      }
+
+      .left {
+        text-align: left;
+      }
+
+      .large {
+        font-size: 1.5em;
+      }
+
+      .medium {
+        font-size: 1.2em;
+      }
+
+      .small {
+        font-size: 0.9em;
+      }
+
+      ul {
+        margin: 1em 0;
+      }
+
+      li {
+        margin: 0.5em 0;
+      }
+
+      strong {
+        color: #e74c3c;
+      }
+
+      .highlight {
+        background: #f39c12;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 3px;
+      }
+
+      .mermaid {
+        text-align: center;
+        margin: 1em 0;
+      }
+
+      .benefits {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1em;
+        margin: 1em 0;
+      }
+
+      .benefit-item {
+        background: #ecf0f1;
+        padding: 1em;
+        border-radius: 5px;
+        text-align: center;
+        font-weight: bold;
+        color: #2c3e50;
+      }
+
+      .phase {
+        background: #3498db;
+        color: white;
+        padding: 0.5em 1em;
+        border-radius: 20px;
+        display: inline-block;
+        margin: 0.2em;
+        font-size: 0.9em;
+      }
+
+      .tech-stack {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1em;
+        margin: 1em 0;
+      }
+
+      .tech-item {
+        background: #2c3e50;
+        color: white;
+        padding: 0.8em;
+        border-radius: 5px;
+        text-align: center;
+      }
+
+      .sequence-note {
+        font-style: italic;
+        color: #7f8c8d;
+        margin-top: 1em;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <textarea id="source">
+
+class: center, middle
+
+# SpecRepo: Revolutionizing the API Lifecycle
+
+## A Unified, AI-Augmented Platform for Specification Management & Mock-Centric Contract Testing
+
+---
+
+class: center, middle
+
+# The Challenge: The Modern API Lifecycle is Fragmented
+
+.left[
+- Developing, testing, and managing APIs is complex
+- Siloed tools for design, mocking, testing, and documentation
+- Difficulty in keeping specifications, mocks, and tests synchronized
+- High barrier to entry for effective contract testing
+- Slow feedback loops between API producers and consumers
+- Manual effort in generating realistic test data and initial contract sketches
+]
+
+.highlight[Slower development cycles, integration issues, brittle tests, and increased maintenance overhead.]
+
+---
+
+class: center, middle
+
+# Our Vision: A Single Source of Truth, Intelligently Managed
+
+We envision a platform that:
+
+.left[
+- Provides a **unified environment** for the entire API lifecycle
+- **Simplifies contract testing** through an intuitive, mock-centric approach
+- Leverages **Artificial Intelligence** to augment developer productivity and insight
+- Ensures **API specifications are the living contract**, consistently validated and utilized
+- **Accelerates development** by bridging the gap between producers and consumers
+]
+
+.highlight[Goal: Empower teams to build reliable, high-quality APIs faster.]
+
+---
+
+class: center, middle
+
+# Introducing SpecRepo: The Solution
+
+SpecRepo is an API lifecycle management platform that integrates:
+
+.left[
+- **API Specification Management:** Design, version, and document (OpenAPI, etc.)
+- **Advanced Mocking:** Powered by **WireMock** for realistic mock services
+- **Provider Validation:** Using **Schemathesis** for schema compliance
+- **HAR Import & "Contract Sketching":** Bootstrap specs, mocks, and tests from real interactions
+- **AI-Powered Assistance:** For spec generation, test data, analysis, and HAR processing
+- **Workflow Automation:** With **n8n** for notifications and process orchestration
+]
+
+---
+
+class: center, middle
+
+# Architecture
+
+<div class="mermaid">
+graph TD
+    User --> FE[React Frontend]
+    FE <--> API[FastAPI Backend]
+    
+    subgraph "Platform Services (Docker)"
+        API --> DB[PostgreSQL]
+        API --> WM_Admin[WireMock Admin API]
+        API --> SL[Schemathesis Lib]
+        API --> N8N_WH[n8n Webhooks]
+        AI_Mod[AI Modules] <--> API
+        WM[WireMock Mocks]
+        N8N_Service[n8n Service]
+    end
+    
+    FE --> WM
+    N8N_Service --> Notifications[Email/Tasks]
+</div>
+
+---
+
+# Core Capabilities - 1/3
+
+.left[
+1. **API Specification Management:**
+    - Support for industry standards (OpenAPI, Swagger, GraphQL planned)
+    - Intuitive editor, version control, and lifecycle tracking
+    - Automated, interactive documentation generation
+
+2. **Advanced Mocking Engine (WireMock):**
+    - Generate high-fidelity mock endpoints directly from API specifications
+    - Sophisticated request matching, response templating, fault injection
+    - Manageable, AI-suggested test data for mocks
+]
+
+---
+
+# Core Capabilities - 2/3
+
+.left[
+3. **Robust Provider Validation (Schemathesis):**
+    - Producers validate their live services against the API specification
+    - Ensures the actual implementation adheres to the defined contract
+
+4. **HAR Import & "Contract Sketching":**
+    - Upload HAR files to capture real API interactions
+    - AI analyzes HAR to:
+        - Draft API specification snippets
+        - Generate initial WireMock stub configurations
+        - Suggest generalizations and flag sensitive data
+    - Accelerates onboarding of existing APIs and test creation
+]
+
+---
+
+# Core Capabilities - 3/3
+
+.left[
+5. **AI-Powered Assistance Throughout:**
+    - Natural Language to Spec (Future), HAR to Spec
+    - Intelligent test data generation
+    - AI-enhanced documentation and contract analysis
+
+6. **Workflow Automation & Notifications (n8n):**
+    - Automated notifications for key events
+    - Orchestrate review processes and other workflows
+    - Integration with external systems and tools
+]
+
+---
+
+class: center, middle
+
+# Innovation: Mock-Centric Contract Testing Simplified
+
+**The Old Way:** Complex setups, separate tools, often theoretical.
+
+**The SpecRepo Way:**
+
+1. **Producer** defines/uploads API Spec (AI-assisted, HAR-informed).
+2. **Platform** generates WireMock mocks from the Spec.
+3. **Consumer** writes tests against these reliable WireMock mocks.
+4. **Producer** validates their *actual service* against the *same API Spec* using **Schemathesis**.
+5. If Schemathesis passes, Producer's service aligns with the Spec
+
+.highlight[Reduced friction, faster feedback, and higher confidence in API integrations.]
+
+---
+
+class: center, middle
+
+# Tech Stack Powering SpecRepo
+
+<div class="tech-stack">
+<div class="tech-item">**Frontend:** React, TypeScript, Zustand, Tailwind CSS</div>
+<div class="tech-item">**Backend:** Python, FastAPI</div>
+<div class="tech-item">**Database:** PostgreSQL</div>
+<div class="tech-item">**Mocking:** WireMock</div>
+<div class="tech-item">**Validation:** Schemathesis</div>
+<div class="tech-item">**Workflow Automation:** n8n</div>
+<div class="tech-item">**AI:** Python libraries integrated into FastAPI</div>
+<div class="tech-item">**Infrastructure:** Docker, Docker Compose</div>
+</div>
+
+---
+
+class: center, middle
+
+# Our MVP: Laying a Solid Foundation
+
+Goal: Deliver core functionalities demonstrating the platform's value.
+
+.left[
+**MVP Scope - Key Features:**
+
+- API Specification Management: CRUD for OpenAPI specs
+- WireMock Integration: Deploy specs as mocks
+- Schemathesis Integration: Validate provider services against specs
+- Basic HAR Import: Upload HAR, backend processing to draft artifacts
+- n8n Notifications
+- Basic UI
+- Core Backend & Dockerized Environment
+]
+
+---
+
+class: center, middle
+
+# MVP Phased Implementation Overview
+
+<div class="phase">Phase 0: Foundation & Setup 🏗️</div>
+<div class="phase">Phase 1: Core Backend - API Specs & Data 💾</div>
+<div class="phase">Phase 2: Core Contract Testing Mechanics - Backend ⚙️</div>
+<div class="phase">Phase 3: Basic Frontend - UI for Core Features 🖥️</div>
+<div class="phase">Phase 4: Enhancing Input & Intelligence - HAR & Basic AI 🧠</div>
+<div class="phase">Phase 5: Workflow Orchestration & End-to-End MVP 🔄</div>
+<div class="phase">Phase 6: Packaging, Documentation & Polish 🎁</div>
+
+---
+
+# MVP Use Case Example 1: New API Specification & Notification
+
+<div class="mermaid">
+sequenceDiagram
+    actor User
+    participant FE as React Frontend
+    participant BE as FastAPI Backend
+    participant N8N as n8n
+    
+    User->>+FE: Create New API Spec
+    FE->>+BE: POST /api/specifications
+    BE->>BE: Save to DB
+    BE->>+N8N: Trigger N8N_WEBHOOK_NEW_SPEC
+    N8N->>N8N: Format & Send Email
+    N8N-->>-BE: OK
+    BE-->>-FE: Success
+    FE-->>-User: Display Success
+</div>
+
+<div class="sequence-note">User creates a spec via UI. Backend saves it and triggers an n8n workflow. n8n sends an email notification.</div>
+
+---
+
+# MVP Use Case Example 2: Validating a Provider & Notification
+
+<div class="mermaid">
+sequenceDiagram
+    actor User
+    participant FE as React Frontend
+    participant BE as FastAPI Backend
+    participant Schemathesis
+    participant N8N as n8n
+    
+    User->>+FE: Trigger Provider Validation (spec ID, provider URL)
+    FE->>+BE: POST /api/spec/{id}/validate
+    BE->>Schemathesis: Run tests (spec, URL)
+    Schemathesis-->>BE: Results
+    BE->>+N8N: Trigger N8N_WEBHOOK_SCHEMATHESIS_DONE (results)
+    N8N->>N8N: Format & Send Email
+    N8N-->>-BE: OK
+    BE-->>-FE: Validation Results
+    FE-->>-User: Display Results
+</div>
+
+<div class="sequence-note">User triggers validation of a provider's live service. Backend uses Schemathesis, then triggers n8n. n8n notifies on completion.</div>
+
+---
+
+# MVP Use Case Example 3: HAR "Contract Sketching" & Notifications
+
+<div class="mermaid">
+sequenceDiagram
+    actor User
+    participant FE as React Frontend
+    participant BE as FastAPI Backend (with AI)
+    participant N8N as n8n
+    
+    User->>+FE: Upload HAR file
+    FE->>+BE: POST /api/har/upload
+    BE->>BE: Parse HAR, AI Generalization -> Draft Artifacts
+    BE->>+N8N: Trigger N8N_WEBHOOK_HAR_PROCESSED_USER
+    N8N-->>BE: OK (User Notification Sent)
+    BE->>+N8N: Trigger N8N_WEBHOOK_HAR_REVIEW_REQUEST
+    N8N-->>BE: OK (Review Notification Sent)
+    BE-->>-FE: Suggested Artifacts
+    FE-->>-User: Display "Contract Sketches"
+</div>
+
+<div class="sequence-note">User uploads a HAR file. Backend processes it using basic AI, generating draft artifacts. n8n sends notifications to the user and for review. Frontend displays "sketches."</div>
+
+---
+
+class: center, middle
+
+# Why SpecRepo? The Benefits
+
+<div class="benefits">
+<div class="benefit-item">Increased Productivity</div>
+<div class="benefit-item">Improved API Quality</div>
+<div class="benefit-item">Faster Time-to-Market</div>
+<div class="benefit-item">Reduced Integration Risks</div>
+<div class="benefit-item">Enhanced Collaboration</div>
+<div class="benefit-item">Lower Barrier to Entry</div>
+</div>
+
+---
+
+class: center, middle
+
+# The Future: Beyond MVP
+
+.left[
+- Advanced AI capabilities
+- Broader specification support
+- Full BDD integration for test definition
+- Enhanced collaboration features & user management
+- CI/CD integration for automated contract validation
+- SaaS and Self-Hosted offerings
+]
+
+---
+
+class: center, middle
+
+# Call to Action / Q&A
+
+## Join us in building the future of API development.
+
+We are seeking **Partners** / **Beta Testers** / **Investors** / **Feedback**.
+
+### Questions?
+
+    </textarea>
+    <script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>
+      // Initialize Remark first
+      var slideshow = remark.create({
+        highlightStyle: "github",
+        highlightLines: true,
+        countIncrementalSlides: false,
+        ratio: "16:9",
+      });
+
+      // Initialize Mermaid
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: "default",
+        themeVariables: {
+          primaryColor: "#3498db",
+          primaryTextColor: "#2c3e50",
+          primaryBorderColor: "#2980b9",
+          lineColor: "#34495e",
+          secondaryColor: "#ecf0f1",
+          tertiaryColor: "#f8f9fa",
+        },
+      });
+
+      // Function to render Mermaid diagrams
+      function renderMermaidDiagrams() {
+        // Only process diagrams in the currently visible slide
+        var currentSlide = document.querySelector(
+          ".remark-slide-container.remark-visible"
+        );
+        if (!currentSlide) return;
+
+        var mermaidElements = currentSlide.querySelectorAll(
+          ".mermaid:not([data-processed])"
+        );
+
+        mermaidElements.forEach(function (element, index) {
+          var diagramText = element.textContent.trim();
+          var diagramId = "diagram-" + Date.now() + "-" + index;
+
+          try {
+            // Use the newer async API
+            mermaid
+              .render(diagramId, diagramText)
+              .then(function (result) {
+                element.innerHTML = result.svg;
+                element.setAttribute("data-processed", "true");
+              })
+              .catch(function (error) {
+                console.warn("Mermaid rendering error:", error);
+                element.setAttribute("data-processed", "true");
+              });
+          } catch (error) {
+            console.warn("Mermaid rendering error:", error);
+            element.setAttribute("data-processed", "true");
+          }
+        });
+      }
+
+      // Render diagrams when slide changes
+      slideshow.on("afterShowSlide", function (slide) {
+        setTimeout(renderMermaidDiagrams, 100);
+      });
+
+      // Initial render
+      slideshow.on("ready", function () {
+        setTimeout(renderMermaidDiagrams, 200);
+      });
+    </script>
+  </body>
+</html>
