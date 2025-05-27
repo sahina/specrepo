@@ -10,7 +10,7 @@ This rule describes which package management libraries should be used for variou
 ## General
 
 - Use `zsh` for shell operations
-- Investigate `Makefile` for running tasks like test, run, build, package etc..
+- Always use `Makefile` for running tasks like test, run, build, package etc..
 
 ## Node.JS
 

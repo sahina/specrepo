@@ -12,6 +12,7 @@ dependencies = [
     "psycopg2-binary>=2.9.0",
     "httpx>=0.24.0",
     "pytest-asyncio>=1.0.0",
+    "schemathesis>=3.19.0",
 ]
 
 [project.optional-dependencies]
@@ -19,7 +20,7 @@ dev = ["ruff>=0.3.2", "pytest>=7.4.4"]
 
 [tool.ruff]
 # Enable line length checks and other rules to match flake8 behavior
-line-length = 79
+line-length = 90
 
 [tool.ruff.lint]
 select = [

@@ -1,6 +1,6 @@
 # SpecRepo
 
-A project for managing and collaborating on specifications using a web interface and AI-powered task management.
+A project for managing and collaborating on API specifications using a web interface and AI-powered task management.
 
 ## Architecture Overview
 
