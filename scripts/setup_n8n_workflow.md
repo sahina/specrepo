@@ -155,7 +155,7 @@ python -m pytest tests/test_n8n_integration.py -v
 - **Cause**: Incorrect webhook URL in environment variables
 - **Solution**: Make sure `N8N_WEBHOOK_URL` uses the service name `n8n` in docker-compose:
 
-  ```
+  ```shell
   N8N_WEBHOOK_URL=http://n8n:5678/webhook-test/api-spec-notification
   ```
 
