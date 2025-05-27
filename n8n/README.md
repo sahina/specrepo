@@ -142,7 +142,7 @@ Create or update an API specification through the backend API to trigger the wor
 
 ```bash
 # Create a new specification (triggers "created" event)
-curl -X POST http://localhost:8001/api/specifications \
+curl -X POST http://localhost:8000/api/specifications \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your-api-key" \
   -d '{
