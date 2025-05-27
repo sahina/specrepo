@@ -275,9 +275,81 @@ Alternatively, you can run the entire application stack using Docker Compose:
 
 ## Testing
 
+### Quick Start for API Testing
+
+To test the API endpoints, you'll need an API key. Here's how to get started:
+
+1. **Start the database:**
+
+   ```bash
+   docker-compose up -d postgres
+   ```
+
+2. **Run database migrations:**
+
+   ```bash
+   cd backend && uv run alembic upgrade head
+   ```
+
+3. **Start the backend:**
+
+   ```bash
+   make dev-backend
+   # Or: cd backend && uv run uvicorn main:app --reload
+   ```
+
+4. **Create a test user and get an API key:**
+
+   ```bash
+   curl -X POST "http://localhost:8000/api/users?username=testuser&email=test@example.com"
+   ```
+
+   This will return a response like:
+
+   ```json
+   {
+     "message": "User created successfully",
+     "username": "testuser", 
+     "api_key": "your-32-character-api-key-here"
+   }
+   ```
+
+5. **Test protected endpoints:**
+
+   ```bash
+   # Using X-API-Key header
+   curl -H "X-API-Key: your-api-key-here" http://localhost:8000/api/protected
+   
+   # Or using Authorization Bearer token
+   curl -H "Authorization: Bearer your-api-key-here" http://localhost:8000/api/protected
+   ```
+
+### Available Test Endpoints
+
+- **Health Check** (no auth): `GET /health`
+- **Create User** (no auth): `POST /api/users?username=<name>&email=<email>`
+- **User Profile** (auth required): `GET /api/profile`
+- **Protected Test** (auth required): `GET /api/protected`
+- **API Specifications** (auth required): `GET /api/specifications`
+
+### Seeding Test Data
+
+For development and testing, you can seed the database with test data:
+
+```bash
+# Seed test users and sample data
+make seed-data
+```
+
+This creates:
+
+- Test users with known API keys
+- Sample API specifications
+- Mock configurations for testing
+
 ### Backend Tests
 
-The backend includes a suite of automated tests using `pytest` for database migrations, SQLAlchemy models (CRUD operations, constraints), and potentially API endpoints in the future.
+The backend includes a suite of automated tests using `pytest` for database migrations, SQLAlchemy models (CRUD operations, constraints), and API endpoints.
 
 For detailed instructions on how to set up the test environment and run these tests, please refer to the [backend/README.md](backend/README.md).
 
