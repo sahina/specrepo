@@ -123,7 +123,7 @@ For detailed instructions on how to set up the test environment and run these te
     ```bash
     cd backend
     # Activate your Python virtual environment if not already active
-    # e.g., source ../.venv/bin/activate
+    # e.g., source .venv/bin/activate
     pytest
     cd ..
     ```

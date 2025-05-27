@@ -74,10 +74,8 @@ To run the automated tests for the backend:
 4. **Activate your virtual environment** (if you haven't already):
 
     ```bash
-    # Example if your .venv is in the project root
-    source ../.venv/bin/activate 
-    # Or if it's in the backend directory itself
-    # source .venv/bin/activate 
+    # Activate the virtual environment (located in backend directory)
+    source .venv/bin/activate 
     ```
 
 5. **Run pytest:**

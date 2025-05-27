@@ -130,7 +130,7 @@ git diff uv.lock
 If you see warnings like:
 
 ```
-warning: `VIRTUAL_ENV=/path/to/.venv` does not match the project environment path `.venv`
+warning: `VIRTUAL_ENV=/path/to/old/.venv` does not match the project environment path `.venv`
 ```
 
 Use the `run_clean.py` script which temporarily removes the VIRTUAL_ENV variable:
