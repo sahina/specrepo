@@ -155,6 +155,10 @@ migrate-downgrade: ## Downgrade database by one migration
 migrate-history: ## Show migration history
 	cd backend && uv run --active alembic history
 
+seed-data: ## Seed database with test users and sample data for development
+	@echo "Seeding database with test data..."
+	cd backend && uv run --active python seed_data.py
+
 db-reset: ## Reset database (WARNING: destroys all data)
 	@echo "WARNING: This will destroy all database data!"
 	@read -p "Are you sure? (y/N): " confirm && [ "$$confirm" = "y" ]
@@ -163,6 +167,10 @@ db-reset: ## Reset database (WARNING: destroys all data)
 	docker-compose up -d postgres
 	sleep 5
 	$(MAKE) migrate
+
+db-reset-with-seed: ## Reset database and seed with test data
+	$(MAKE) db-reset
+	$(MAKE) seed-data
 
 # =============================================================================
 # Docker Operations
