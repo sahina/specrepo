@@ -47,7 +47,7 @@
 - **Yahoo**: `smtp.mail.yahoo.com`, Port `587`, TLS
 - **Custom SMTP**: Use your provider's settings
 
-5. Click **"Save"**
+Click **"Save"**
 
 ### 4. Update Email Nodes in Workflow
 
