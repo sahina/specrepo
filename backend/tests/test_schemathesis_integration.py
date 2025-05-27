@@ -94,9 +94,7 @@ class TestAuthenticationHandler:
 
     def test_prepare_auth_headers_none(self):
         """Test preparing headers with no authentication."""
-        headers = AuthenticationHandler.prepare_auth_headers(
-            AuthMethod.NONE, None
-        )
+        headers = AuthenticationHandler.prepare_auth_headers(AuthMethod.NONE, None)
         assert headers == {}
 
     def test_prepare_auth_headers_api_key(self):
@@ -134,9 +132,7 @@ class TestAuthenticationHandler:
 
     def test_prepare_auth_params_none(self):
         """Test preparing query params with no authentication."""
-        params = AuthenticationHandler.prepare_auth_params(
-            AuthMethod.NONE, None
-        )
+        params = AuthenticationHandler.prepare_auth_params(AuthMethod.NONE, None)
         assert params == {}
 
     def test_prepare_auth_params_api_key_in_query(self):
@@ -172,9 +168,7 @@ class TestSchemathesisTestRunner:
             "openapi": "3.0.0",
             "info": {"title": "Test API", "version": "1.0.0"},
             "paths": {
-                "/test": {
-                    "get": {"responses": {"200": {"description": "Success"}}}
-                }
+                "/test": {"get": {"responses": {"200": {"description": "Success"}}}}
             },
         }
 
@@ -183,10 +177,12 @@ class TestSchemathesisTestRunner:
         mock_response.status_code = 200
         mock_response.elapsed.total_seconds.return_value = 0.5
 
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.request = (
-                AsyncMock(return_value=mock_response)
-            )
+        with patch(
+            "app.services.schemathesis_integration.httpx.AsyncClient"
+        ) as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.request = AsyncMock(return_value=mock_response)
+            mock_client_class.return_value.__aenter__.return_value = mock_client
 
             results = await runner.run_tests(
                 openapi_spec=openapi_spec,
@@ -214,11 +210,7 @@ class TestSchemathesisTestRunner:
             "openapi": "3.0.0",
             "info": {"title": "Test API", "version": "1.0.0"},
             "paths": {
-                "/error": {
-                    "get": {
-                        "responses": {"500": {"description": "Server Error"}}
-                    }
-                }
+                "/error": {"get": {"responses": {"500": {"description": "Server Error"}}}}
             },
         }
 
@@ -227,10 +219,12 @@ class TestSchemathesisTestRunner:
         mock_response.status_code = 500
         mock_response.elapsed.total_seconds.return_value = 0.5
 
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.request = (
-                AsyncMock(return_value=mock_response)
-            )
+        with patch(
+            "app.services.schemathesis_integration.httpx.AsyncClient"
+        ) as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.request = AsyncMock(return_value=mock_response)
+            mock_client_class.return_value.__aenter__.return_value = mock_client
 
             results = await runner.run_tests(
                 openapi_spec=openapi_spec,
@@ -255,17 +249,17 @@ class TestSchemathesisTestRunner:
             "openapi": "3.0.0",
             "info": {"title": "Test API", "version": "1.0.0"},
             "paths": {
-                "/test": {
-                    "get": {"responses": {"200": {"description": "Success"}}}
-                }
+                "/test": {"get": {"responses": {"200": {"description": "Success"}}}}
             },
         }
 
         # Mock httpx client to raise exception
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.request = (
-                AsyncMock(side_effect=Exception("Connection error"))
-            )
+        with patch(
+            "app.services.schemathesis_integration.httpx.AsyncClient"
+        ) as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.request = AsyncMock(side_effect=Exception("Connection error"))
+            mock_client_class.return_value.__aenter__.return_value = mock_client
 
             results = await runner.run_tests(
                 openapi_spec=openapi_spec,
@@ -327,22 +321,18 @@ class TestSchemathesisIntegrationService:
     """Test Schemathesis integration service functionality."""
 
     @pytest.mark.asyncio
-    async def test_create_validation_run(
-        self, db_session, sample_api_spec, sample_user
-    ):
+    async def test_create_validation_run(self, db_session, sample_api_spec, sample_user):
         """Test creating a validation run."""
-        validation_run = (
-            await SchemathesisIntegrationService.create_validation_run(
-                db=db_session,
-                api_specification_id=sample_api_spec.id,
-                provider_url="https://api.example.com",
-                user_id=sample_user.id,
-                auth_method=AuthMethod.API_KEY,
-                auth_config={"api_key": "test-key"},
-                test_strategies=["path_parameters"],
-                max_examples=50,
-                timeout=600,
-            )
+        validation_run = await SchemathesisIntegrationService.create_validation_run(
+            db=db_session,
+            api_specification_id=sample_api_spec.id,
+            provider_url="https://api.example.com",
+            user_id=sample_user.id,
+            auth_method=AuthMethod.API_KEY,
+            auth_config={"api_key": "test-key"},
+            test_strategies=["path_parameters"],
+            max_examples=50,
+            timeout=600,
         )
 
         assert validation_run.id is not None
@@ -385,10 +375,8 @@ class TestSchemathesisIntegrationService:
         ) as mock_run_tests:
             mock_run_tests.return_value = mock_results
 
-            result = (
-                await SchemathesisIntegrationService.execute_validation_run(
-                    db_session, sample_validation_run.id
-                )
+            result = await SchemathesisIntegrationService.execute_validation_run(
+                db_session, sample_validation_run.id
             )
 
         assert result.status == ValidationRunStatus.COMPLETED.value
@@ -398,9 +386,7 @@ class TestSchemathesisIntegrationService:
     async def test_execute_validation_run_not_found(self, db_session):
         """Test execution of non-existent validation run."""
         with pytest.raises(ValueError, match="Validation run 999 not found"):
-            await SchemathesisIntegrationService.execute_validation_run(
-                db_session, 999
-            )
+            await SchemathesisIntegrationService.execute_validation_run(db_session, 999)
 
     @pytest.mark.asyncio
     async def test_execute_validation_run_failure(
@@ -412,19 +398,15 @@ class TestSchemathesisIntegrationService:
         ) as mock_run_tests:
             mock_run_tests.side_effect = Exception("Test execution failed")
 
-            result = (
-                await SchemathesisIntegrationService.execute_validation_run(
-                    db_session, sample_validation_run.id
-                )
+            result = await SchemathesisIntegrationService.execute_validation_run(
+                db_session, sample_validation_run.id
             )
 
         assert result.status == ValidationRunStatus.FAILED.value
         assert "Test execution failed" in result.schemathesis_results["error"]
 
     @pytest.mark.asyncio
-    async def test_get_validation_runs(
-        self, db_session, sample_api_spec, sample_user
-    ):
+    async def test_get_validation_runs(self, db_session, sample_api_spec, sample_user):
         """Test getting validation runs with filtering."""
         # Create multiple validation runs
         validation_run1 = ValidationRun(

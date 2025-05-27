@@ -129,7 +129,7 @@ git diff uv.lock
 
 If you see warnings like:
 
-```
+```shell
 warning: `VIRTUAL_ENV=/path/to/old/.venv` does not match the project environment path `.venv`
 ```
 
