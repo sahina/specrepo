@@ -6,4 +6,5 @@ psycopg2-binary
 httpx
 pydantic
 python-dotenv
-pyyaml 
+pyyaml
+schemathesis 

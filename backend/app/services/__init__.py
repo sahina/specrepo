@@ -1,5 +1,10 @@
 # Services package
 
+from .schemathesis_integration import (
+    AuthenticationHandler,
+    SchemathesisIntegrationService,
+    SchemathesisTestRunner,
+)
 from .wiremock_integration import (
     OpenAPIEndpoint,
     OpenAPIParser,
@@ -16,4 +21,7 @@ __all__ = [
     "WireMockClient",
     "OpenAPIEndpoint",
     "WireMockStub",
+    "SchemathesisIntegrationService",
+    "AuthenticationHandler",
+    "SchemathesisTestRunner",
 ]

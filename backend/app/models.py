@@ -91,8 +91,15 @@ class ValidationRun(Base):
         Integer, ForeignKey("api_specifications.id"), nullable=False
     )
     provider_url = Column(String, nullable=False)
+    auth_method = Column(String, default="none")  # Authentication method
+    auth_config = Column(JSON)  # Authentication configuration
+    test_strategies = Column(JSON)  # Test strategies to use
+    max_examples = Column(Integer, default=100)  # Max test examples
+    timeout = Column(Integer, default=300)  # Timeout in seconds
     schemathesis_results = Column(JSON)  # Consider JSONB for PostgreSQL
-    status = Column(String)  # e.g., 'running', 'completed', 'failed'
+    status = Column(
+        String, default="pending"
+    )  # e.g., 'pending', 'running', 'completed', 'failed'
     triggered_at = Column(DateTime(timezone=True), server_default=func.now())
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
