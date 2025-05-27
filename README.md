@@ -1,10 +1,177 @@
 # SpecRepo
 
-A project for managing and collaborating on API specifications using a web interface and AI-powered task management.
+**SpecRepo** is a comprehensive API lifecycle management platform that streamlines the development, testing, and collaboration around API specifications. It bridges the gap between API design and implementation by providing automated mocking, validation, and AI-powered contract generation from real-world traffic.
+
+## What is SpecRepo?
+
+SpecRepo transforms how teams work with APIs by providing a unified platform for:
+
+- **API Specification Management**: Create, version, and manage OpenAPI specifications with an intuitive web interface
+- **Automated Mocking**: Deploy specifications as live mock services using WireMock integration
+- **Contract Validation**: Validate real API implementations against specifications using Schemathesis
+- **AI-Powered Contract Generation**: Upload HAR files and let AI generate draft API specifications and mock configurations
+- **Workflow Automation**: Automated notifications and task management through n8n integration
+
+## Key Features
+
+### 🔧 **API Specification Management**
+
+- Full CRUD operations for OpenAPI specifications
+- Version control and lifecycle tracking
+- Interactive documentation generation
+- User authentication and authorization
+
+### 🎭 **Smart Mocking**
+
+- One-click deployment of specifications to WireMock
+- Automatic generation of mock endpoints
+- Live mock services for frontend development and testing
+
+### ✅ **Automated Validation**
+
+- Schemathesis integration for comprehensive API testing
+- Validate live services against specifications
+- Detailed validation reports and notifications
+
+### 🤖 **AI-Powered Features**
+
+- HAR file processing with AI generalization
+- Automatic generation of draft OpenAPI specifications
+- Smart detection and flagging of sensitive data
+- Contract "sketching" from real traffic patterns
+
+### 🔄 **Workflow Automation**
+
+- n8n integration for automated notifications
+- Email alerts for specification changes, validation results
+- Review workflows for AI-generated artifacts
 
 ## Architecture Overview
 
-(A placeholder for an architecture diagram or description)
+```mermaid
+graph TB
+    subgraph "User Interface"
+        UI[React Frontend<br/>TypeScript, Tailwind CSS]
+    end
+
+    subgraph "Core Platform"
+        API[FastAPI Backend<br/>Python, SQLAlchemy]
+        DB[(PostgreSQL<br/>Database)]
+        API --> DB
+    end
+
+    subgraph "Services"
+        WM[WireMock<br/>Mock Server]
+        N8N[n8n<br/>Workflow Automation]
+        ST[Schemathesis<br/>API Testing]
+    end
+
+    subgraph "AI Modules"
+        HAR[HAR Processor]
+        GEN[Contract Generator]
+        VAL[Data Validator]
+    end
+
+    UI <--> API
+    API --> WM
+    API --> N8N
+    API --> ST
+    API --> HAR
+    API --> GEN
+    API --> VAL
+
+    N8N --> EMAIL[Email Notifications]
+    WM --> MOCK[Mock Endpoints]
+    ST --> PROVIDER[Live API Services]
+```
+
+## Core Workflows
+
+```mermaid
+graph LR
+    subgraph "Specification Lifecycle"
+        A[Create/Upload<br/>API Spec] --> B[Deploy to<br/>WireMock]
+        B --> C[Validate Against<br/>Live Service]
+        C --> D[Generate<br/>Reports]
+    end
+
+    subgraph "AI-Powered Generation"
+        E[Upload<br/>HAR File] --> F[AI Processing<br/>& Analysis]
+        F --> G[Generate Draft<br/>Specifications]
+        G --> H[Review &<br/>Refine]
+        H --> A
+    end
+
+    subgraph "Automation"
+        I[Workflow<br/>Triggers] --> J[n8n<br/>Processing]
+        J --> K[Email<br/>Notifications]
+    end
+
+    B -.-> I
+    C -.-> I
+    F -.-> I
+```
+
+## MVP Scope
+
+The current MVP focuses on delivering core functionalities that demonstrate the platform's value:
+
+### ✅ **Phase 1: Foundation**
+
+- **API Specification Management**: Complete CRUD operations for OpenAPI specifications
+- **User Authentication**: API key-based authentication system
+- **Database Layer**: PostgreSQL with SQLAlchemy ORM and Alembic migrations
+
+### ✅ **Phase 2: Core Services**
+
+- **WireMock Integration**: Deploy specifications as live mock services
+- **Schemathesis Integration**: Validate provider services against specifications
+- **n8n Workflow Automation**: Automated email notifications for key events
+
+### 🚧 **Phase 3: AI Features**
+
+- **HAR File Processing**: Upload and process HAR files with basic AI
+- **Contract Generation**: Generate draft OpenAPI specifications from traffic
+- **Smart Analysis**: Detect and flag sensitive data in API traffic
+
+### 🔮 **Future Enhancements**
+
+- Advanced AI capabilities for specification optimization
+- Enhanced collaboration features and user management
+- CI/CD integration for automated contract validation
+- Support for GraphQL and other API specification formats
+
+## Technology Stack
+
+### **Frontend**
+
+- **React** with TypeScript for type safety
+- **Tailwind CSS** for styling
+- **shadcn/ui** for UI components
+- **Zustand** for state management
+- **Vite** for fast development and building
+
+### **Backend**
+
+- **FastAPI** for high-performance API development
+- **SQLAlchemy** ORM with PostgreSQL
+- **Alembic** for database migrations
+- **Pydantic** for data validation
+- **Python** with modern async/await patterns
+
+### **Services & Infrastructure**
+
+- **PostgreSQL** for persistent data storage
+- **WireMock** for API mocking capabilities
+- **Schemathesis** for automated API testing
+- **n8n** for workflow automation and notifications
+- **Docker & Docker Compose** for containerization
+
+### **AI & Processing**
+
+- **Python AI libraries** integrated into FastAPI backend
+- **HAR file processing** for traffic analysis
+- **OpenAPI generation** from real-world API usage
 
 ## Getting Started
 
@@ -36,7 +203,7 @@ For detailed backend package management, see [backend/PACKAGE_MANAGEMENT.md](bac
    ```sh
    # Use the Makefile for easy setup
    make install
-   
+
    # Or manually:
    # Frontend: cd frontend && pnpm install
    # Backend: cd backend && uv sync
