@@ -241,6 +241,20 @@ class ApiClient {
   }
 
   // ============================================================================
+  // User Profile
+  // ============================================================================
+
+  async getProfile(): Promise<{
+    id: number;
+    username: string;
+    email: string;
+    created_at: string;
+  }> {
+    const response = await this.client.get("/api/profile");
+    return response.data;
+  }
+
+  // ============================================================================
   // API Specifications
   // ============================================================================
 

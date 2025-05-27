@@ -1,12 +1,16 @@
+import apiClient from "@/services/api";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 interface AuthState {
   apiKey: string | null;
   isAuthenticated: boolean;
-  login: (apiKey: string) => void;
+  isLoading: boolean;
+  error: string | null;
+  login: (apiKey: string) => Promise<void>;
   logout: () => void;
   validateApiKey: (apiKey: string) => boolean;
+  clearError: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -14,23 +18,62 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       apiKey: null,
       isAuthenticated: false,
+      isLoading: false,
+      error: null,
 
-      login: (apiKey: string) => {
-        if (get().validateApiKey(apiKey)) {
-          set({ apiKey, isAuthenticated: true });
-          return;
+      login: async (apiKey: string) => {
+        if (!get().validateApiKey(apiKey)) {
+          throw new Error("Invalid API key format");
         }
-        throw new Error("Invalid API key format");
+
+        set({ isLoading: true, error: null });
+
+        try {
+          // Set the API key in the client
+          apiClient.setApiKey(apiKey);
+
+          // Try to make an authenticated request to validate the key
+          await apiClient.getProfile();
+
+          // If successful, store the API key and mark as authenticated
+          set({
+            apiKey,
+            isAuthenticated: true,
+            isLoading: false,
+            error: null,
+          });
+        } catch (error) {
+          // Clear the API key from the client
+          apiClient.clearApiKey();
+
+          set({
+            apiKey: null,
+            isAuthenticated: false,
+            isLoading: false,
+            error:
+              error instanceof Error ? error.message : "Authentication failed",
+          });
+          throw error;
+        }
       },
 
       logout: () => {
-        set({ apiKey: null, isAuthenticated: false });
+        apiClient.clearApiKey();
+        set({
+          apiKey: null,
+          isAuthenticated: false,
+          error: null,
+        });
       },
 
       validateApiKey: (apiKey: string) => {
-        // Basic validation - API key should be a non-empty string
-        // In a real app, you might want more sophisticated validation
+        // Basic format validation - API key should be a non-empty string
+        // The actual validation happens in the login method via backend call
         return typeof apiKey === "string" && apiKey.trim().length > 0;
+      },
+
+      clearError: () => {
+        set({ error: null });
       },
     }),
     {

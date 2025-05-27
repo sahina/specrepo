@@ -66,13 +66,73 @@ setup-env: ## Setup environment files from examples
 # Development
 # =============================================================================
 
+dev-setup: ## Setup development environment (install deps, start db, migrate, seed)
+	@echo "🔧 Setting up SpecRepo development environment..."
+	@echo "Installing dependencies..."
+	@$(MAKE) install
+	@echo "Starting database..."
+	@$(MAKE) postgres-up
+	@echo "Waiting for database to be ready..."
+	@sleep 5
+	@echo "Running migrations..."
+	@$(MAKE) migrate
+	@echo "Seeding database with test data..."
+	@$(MAKE) seed-data
+	@echo ""
+	@echo "✅ Development environment is ready!"
+	@echo "Run 'make dev' to start the development servers"
+
+dev-full: ## Start full development stack (all services: frontend, backend, postgres, n8n, wiremock)
+	@echo "🚀 Starting full SpecRepo development stack..."
+	@echo "Starting all services with Docker Compose..."
+	@$(MAKE) docker-up
+	@echo "Waiting for services to be ready..."
+	@sleep 10
+	@echo "Running migrations..."
+	@$(MAKE) migrate
+	@echo "Seeding database with test data..."
+	@$(MAKE) seed-data
+	@echo ""
+	@echo "🌟 Full development stack is running!"
+	@echo "Frontend: http://localhost:5173"
+	@echo "Backend: http://localhost:8000"
+	@echo "API Documentation: http://localhost:8000/docs"
+	@echo "N8N: http://localhost:5679"
+	@echo "WireMock: http://localhost:8081"
+	@echo "PostgreSQL: localhost:5432"
+	@echo ""
+	@echo "Test API Keys:"
+	@echo "  Admin: admin-dev-key-12345678901234567890"
+	@echo "  Developer: dev-test-key-12345678901234567890"
+	@echo "  Tester: test-api-key-12345678901234567890"
+	@echo ""
+	@echo "Use 'make docker-logs' to view logs"
+	@echo "Use 'make docker-down' to stop all services"
+
 dev: ## Start development servers (frontend and backend)
-	@echo "Starting development servers..."
+	@echo "🚀 Starting SpecRepo development environment..."
+	@echo "Ensuring database is running..."
+	@$(MAKE) postgres-up
+	@echo "Waiting for database to be ready..."
+	@sleep 3
+	@echo "Running migrations..."
+	@$(MAKE) migrate
+	@echo "Seeding database with test data..."
+	@$(MAKE) seed-data
+	@echo ""
+	@echo "🌟 Starting development servers..."
 	@echo "Frontend will be available at http://localhost:5173"
 	@echo "Backend will be available at http://localhost:8000"
+	@echo "API Documentation at http://localhost:8000/docs"
+	@echo ""
+	@echo "Test API Keys:"
+	@echo "  Admin: admin-dev-key-12345678901234567890"
+	@echo "  Developer: dev-test-key-12345678901234567890"
+	@echo "  Tester: test-api-key-12345678901234567890"
+	@echo ""
 	@echo "Press Ctrl+C to stop both servers"
 	@trap 'kill %1 %2' INT; \
-	cd backend && uv run --active uvicorn main:app --reload --host 0.0.0.0 --port 8000 & \
+	cd backend && uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000 & \
 	cd frontend && pnpm dev & \
 	wait
 

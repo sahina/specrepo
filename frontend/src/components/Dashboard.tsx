@@ -1,22 +1,53 @@
+import type { APISpecification } from "@/services/api";
 import { useState } from "react";
+import { SpecificationsList } from "./SpecificationsList";
+
+type DashboardView = "overview" | "specifications" | "validations" | "settings";
 
 export function Dashboard() {
-  const [count, setCount] = useState(0);
+  const [currentView, setCurrentView] = useState<DashboardView>("overview");
+
+  const handleViewSpecification = (spec: APISpecification) => {
+    // TODO: Navigate to specification detail view
+    console.log("View specification:", spec);
+  };
+
+  const handleEditSpecification = (spec: APISpecification) => {
+    // TODO: Navigate to specification edit view
+    console.log("Edit specification:", spec);
+  };
+
+  const handleCreateNewSpecification = () => {
+    // TODO: Navigate to specification create view
+    console.log("Create new specification");
+  };
+
+  if (currentView === "specifications") {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <SpecificationsList
+          onCreateNew={handleCreateNewSpecification}
+          onView={handleViewSpecification}
+          onEdit={handleEditSpecification}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
       <main className="max-w-4xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div className="bg-card border rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-3">API Validation</h2>
+            <h2 className="text-xl font-semibold mb-3">API Specifications</h2>
             <p className="text-muted-foreground mb-4">
-              Upload and validate your OpenAPI specifications
+              Manage your OpenAPI specifications and run validations
             </p>
             <button
               className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors"
-              onClick={() => setCount((count) => count + 1)}
+              onClick={() => setCurrentView("specifications")}
             >
-              Start Validation ({count})
+              Manage Specifications
             </button>
           </div>
 
@@ -25,7 +56,10 @@ export function Dashboard() {
             <p className="text-muted-foreground mb-4">
               View detailed validation reports and test outcomes
             </p>
-            <button className="bg-secondary text-secondary-foreground px-4 py-2 rounded-md hover:bg-secondary/90 transition-colors">
+            <button
+              className="bg-secondary text-secondary-foreground px-4 py-2 rounded-md hover:bg-secondary/90 transition-colors"
+              onClick={() => setCurrentView("validations")}
+            >
               View Reports
             </button>
           </div>
@@ -35,7 +69,10 @@ export function Dashboard() {
             <p className="text-muted-foreground mb-4">
               Configure email notifications for validation results
             </p>
-            <button className="bg-accent text-accent-foreground px-4 py-2 rounded-md hover:bg-accent/90 transition-colors">
+            <button
+              className="bg-accent text-accent-foreground px-4 py-2 rounded-md hover:bg-accent/90 transition-colors"
+              onClick={() => setCurrentView("settings")}
+            >
               Settings
             </button>
           </div>

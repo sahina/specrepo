@@ -7,22 +7,18 @@ interface LoginProps {
 
 export function Login({ onSuccess }: LoginProps) {
   const [apiKey, setApiKey] = useState("");
-  const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const login = useAuthStore((state) => state.login);
+  const { login, isLoading, error, clearError } = useAuthStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    setIsLoading(true);
+    clearError();
 
     try {
-      login(apiKey.trim());
+      await login(apiKey.trim());
       onSuccess?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
-    } finally {
-      setIsLoading(false);
+      // Error is already handled by the auth store
+      console.error("Login failed:", err);
     }
   };
 
