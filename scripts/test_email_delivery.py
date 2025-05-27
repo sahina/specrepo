@@ -57,7 +57,7 @@ A new API specification has been created:
 
 🔗 **Quick Actions:**
 - View specification: http://localhost:5173/specifications/{payload["specification_id"]}
-- API Documentation: http://localhost:8001/docs
+- API Documentation: http://localhost:8000/docs
 
 📊 **OpenAPI Summary:**
 - Title: {payload["openapi_content"]["info"].get("title", "N/A")}
@@ -84,7 +84,7 @@ An API specification has been updated:
 
 🔗 **Quick Actions:**
 - View specification: http://localhost:5173/specifications/{payload["specification_id"]}
-- API Documentation: http://localhost:8001/docs
+- API Documentation: http://localhost:8000/docs
 
 📊 **OpenAPI Summary:**
 - Title: {payload["openapi_content"]["info"].get("title", "N/A")}

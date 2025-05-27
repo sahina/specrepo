@@ -81,7 +81,7 @@
 1. Create a new API specification through the backend:
 
    ```bash
-   curl -X POST http://localhost:8001/api/specifications \
+   curl -X POST http://localhost:8000/api/specifications \
      -H "Content-Type: application/json" \
      -H "Authorization: Bearer your-token" \
      -d '{
