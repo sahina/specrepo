@@ -1,28 +1,80 @@
 import type { APISpecification } from "@/services/api";
 import { useState } from "react";
+import { SpecificationDetail } from "./SpecificationDetail";
 import { SpecificationsList } from "./SpecificationsList";
 
-type DashboardView = "overview" | "specifications" | "validations" | "settings";
+type DashboardView =
+  | "overview"
+  | "specifications"
+  | "validations"
+  | "settings"
+  | "specification-detail"
+  | "specification-create";
+
+interface DashboardState {
+  view: DashboardView;
+  selectedSpecificationId?: number;
+}
 
 export function Dashboard() {
-  const [currentView, setCurrentView] = useState<DashboardView>("overview");
+  const [state, setState] = useState<DashboardState>({ view: "overview" });
 
   const handleViewSpecification = (spec: APISpecification) => {
-    // TODO: Navigate to specification detail view
-    console.log("View specification:", spec);
+    setState({
+      view: "specification-detail",
+      selectedSpecificationId: spec.id,
+    });
   };
 
   const handleEditSpecification = (spec: APISpecification) => {
-    // TODO: Navigate to specification edit view
-    console.log("Edit specification:", spec);
+    setState({
+      view: "specification-detail",
+      selectedSpecificationId: spec.id,
+    });
   };
 
   const handleCreateNewSpecification = () => {
-    // TODO: Navigate to specification create view
-    console.log("Create new specification");
+    setState({ view: "specification-create" });
   };
 
-  if (currentView === "specifications") {
+  const handleBackToSpecifications = () => {
+    setState({ view: "specifications" });
+  };
+
+  const handleSpecificationSaved = (spec: APISpecification) => {
+    // After saving, go back to specifications list
+    // The spec parameter contains the saved specification data
+    console.log("Specification saved:", spec.name);
+    setState({ view: "specifications" });
+  };
+
+  // Specification Detail View (Edit)
+  if (state.view === "specification-detail" && state.selectedSpecificationId) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <SpecificationDetail
+          specificationId={state.selectedSpecificationId}
+          onBack={handleBackToSpecifications}
+          onSave={handleSpecificationSaved}
+        />
+      </div>
+    );
+  }
+
+  // Specification Create View
+  if (state.view === "specification-create") {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <SpecificationDetail
+          onBack={handleBackToSpecifications}
+          onSave={handleSpecificationSaved}
+        />
+      </div>
+    );
+  }
+
+  // Specifications List View
+  if (state.view === "specifications") {
     return (
       <div className="container mx-auto px-4 py-8">
         <SpecificationsList
@@ -34,6 +86,7 @@ export function Dashboard() {
     );
   }
 
+  // Overview/Dashboard View
   return (
     <div className="container mx-auto px-4 py-8">
       <main className="max-w-4xl mx-auto">
@@ -45,7 +98,7 @@ export function Dashboard() {
             </p>
             <button
               className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors"
-              onClick={() => setCurrentView("specifications")}
+              onClick={() => setState({ view: "specifications" })}
             >
               Manage Specifications
             </button>
@@ -58,7 +111,7 @@ export function Dashboard() {
             </p>
             <button
               className="bg-secondary text-secondary-foreground px-4 py-2 rounded-md hover:bg-secondary/90 transition-colors"
-              onClick={() => setCurrentView("validations")}
+              onClick={() => setState({ view: "validations" })}
             >
               View Reports
             </button>
@@ -71,7 +124,7 @@ export function Dashboard() {
             </p>
             <button
               className="bg-accent text-accent-foreground px-4 py-2 rounded-md hover:bg-accent/90 transition-colors"
-              onClick={() => setCurrentView("settings")}
+              onClick={() => setState({ view: "settings" })}
             >
               Settings
             </button>
