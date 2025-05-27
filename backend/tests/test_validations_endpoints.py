@@ -379,7 +379,8 @@ class TestValidationEndpoints:
             )
 
             # Verify that a notification was sent
-            # Since the validation might succeed or fail, check that at least one notification was called
+            # Since the validation might succeed or fail, check that at least one
+            # notification was called
             assert mock_completed.called or mock_failed.called
 
             # Get the updated validation run
