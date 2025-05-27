@@ -19,11 +19,9 @@ export function Header() {
       <div className="container mx-auto px-4 py-4">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold">
-              Schemathesis Validation Platform
-            </h1>
+            <h1 className="text-2xl font-bold">SpecRepo</h1>
             <p className="text-muted-foreground text-sm">
-              Automated API testing and validation
+              API Lifecycle Management Platform
             </p>
           </div>
 

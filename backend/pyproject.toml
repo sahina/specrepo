@@ -1,7 +1,7 @@
 [project]
-name = "backend"
+name = "specrepo-backend"
 version = "0.1.0"
-description = ""
+description = "SpecRepo API Lifecycle Management Platform - Backend API"
 authors = [{ name = "Your Name", email = "you@example.com" }]
 requires-python = ">=3.11"
 dependencies = [
