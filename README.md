@@ -277,75 +277,88 @@ Alternatively, you can run the entire application stack using Docker Compose:
 
 ### Quick Start for API Testing
 
-To test the API endpoints, you'll need an API key. Here's how to get started:
+The easiest way to get started is to use the development environment with pre-seeded test data:
 
-1. **Start the database:**
-
-   ```bash
-   docker-compose up -d postgres
-   ```
-
-2. **Run database migrations:**
+1. **Start the full development environment:**
 
    ```bash
-   cd backend && uv run alembic upgrade head
+   make dev
    ```
 
-3. **Start the backend:**
+   This will:
+   - Start the PostgreSQL database
+   - Run database migrations
+   - Seed the database with test users and sample data
+   - Start both frontend and backend servers
+
+2. **Access the application:**
+   - **Frontend:** <http://localhost:5173>
+   - **Backend API:** <http://localhost:8000>
+   - **API Documentation:** <http://localhost:8000/docs>
+
+### Test Accounts
+
+The `make dev` command automatically creates test accounts with known API keys:
+
+| Username | Email | API Key | Purpose |
+|----------|-------|---------|---------|
+| `admin` | <admin@specrepo.dev> | `admin-dev-key-12345678901234567890` | Administrative testing |
+| `developer` | <dev@specrepo.dev> | `dev-test-key-12345678901234567890` | Development testing |
+| `tester` | <test@specrepo.dev> | `test-api-key-12345678901234567890` | QA testing |
+
+### Manual API Testing
+
+If you prefer to test the API directly:
+
+1. **Start just the backend:**
 
    ```bash
    make dev-backend
-   # Or: cd backend && uv run uvicorn main:app --reload
    ```
 
-4. **Create a test user and get an API key:**
-
-   ```bash
-   curl -X POST "http://localhost:8000/api/users?username=testuser&email=test@example.com"
-   ```
-
-   This will return a response like:
-
-   ```json
-   {
-     "message": "User created successfully",
-     "username": "testuser", 
-     "api_key": "your-32-character-api-key-here"
-   }
-   ```
-
-5. **Test protected endpoints:**
+2. **Test protected endpoints:**
 
    ```bash
    # Using X-API-Key header
-   curl -H "X-API-Key: your-api-key-here" http://localhost:8000/api/protected
+   curl -H "X-API-Key: admin-dev-key-12345678901234567890" http://localhost:8000/api/profile
    
    # Or using Authorization Bearer token
-   curl -H "Authorization: Bearer your-api-key-here" http://localhost:8000/api/protected
+   curl -H "Authorization: Bearer admin-dev-key-12345678901234567890" http://localhost:8000/api/specifications
    ```
 
 ### Available Test Endpoints
 
 - **Health Check** (no auth): `GET /health`
-- **Create User** (no auth): `POST /api/users?username=<name>&email=<email>`
 - **User Profile** (auth required): `GET /api/profile`
-- **Protected Test** (auth required): `GET /api/protected`
 - **API Specifications** (auth required): `GET /api/specifications`
+- **Create Specification** (auth required): `POST /api/specifications`
+
+### Creating Additional Test Users
+
+If you need additional test users, you can create them via the API:
+
+```bash
+curl -X POST "http://localhost:8000/api/users?username=newuser&email=new@example.com"
+```
+
+This will return a response with a generated API key:
+
+```json
+{
+  "message": "User created successfully",
+  "username": "newuser", 
+  "api_key": "your-32-character-api-key-here"
+}
+```
 
 ### Seeding Test Data
 
-For development and testing, you can seed the database with test data:
+The development environment automatically seeds test data, but you can also run it manually:
 
 ```bash
-# Seed test users and sample data
+# Seed test users and sample API specifications
 make seed-data
 ```
-
-This creates:
-
-- Test users with known API keys
-- Sample API specifications
-- Mock configurations for testing
 
 ### Backend Tests
 

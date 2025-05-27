@@ -7,22 +7,18 @@ interface LoginProps {
 
 export function Login({ onSuccess }: LoginProps) {
   const [apiKey, setApiKey] = useState("");
-  const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const login = useAuthStore((state) => state.login);
+  const { login, isLoading, error, clearError } = useAuthStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    setIsLoading(true);
+    clearError();
 
     try {
-      login(apiKey.trim());
+      await login(apiKey.trim());
       onSuccess?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
-    } finally {
-      setIsLoading(false);
+      // Error is already handled by the auth store
+      console.error("Login failed:", err);
     }
   };
 
@@ -30,9 +26,9 @@ export function Login({ onSuccess }: LoginProps) {
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <h1 className="text-3xl font-bold">Welcome</h1>
+          <h1 className="text-3xl font-bold">Welcome to SpecRepo</h1>
           <p className="text-muted-foreground mt-2">
-            Enter your API key to access the Schemathesis Validation Platform
+            Enter your API key to access the API Lifecycle Management Platform
           </p>
         </div>
 
