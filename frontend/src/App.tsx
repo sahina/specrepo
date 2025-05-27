@@ -1,7 +1,7 @@
-import { Dashboard } from "./components/Dashboard";
-import { Header } from "./components/Header";
-import { ProtectedRoute } from "./components/ProtectedRoute";
-import { useApiClient } from "./hooks/useApiClient";
+import { Dashboard } from "@/components/Dashboard";
+import { Header } from "@/components/Header";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { useApiClient } from "@/hooks/useApiClient";
 import "./index.css";
 
 function App() {
