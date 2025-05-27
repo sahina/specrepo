@@ -14,6 +14,15 @@ A project for managing and collaborating on API specifications using a web inter
 - Python (with uv)
 - Git
 
+### Package Management
+
+This project uses modern package managers:
+
+- **Frontend**: `pnpm` for Node.js dependencies
+- **Backend**: `uv` for Python dependencies (faster than pip)
+
+For detailed backend package management, see [backend/PACKAGE_MANAGEMENT.md](backend/PACKAGE_MANAGEMENT.md).
+
 ### Installation
 
 1. Clone the repo
@@ -25,23 +34,24 @@ A project for managing and collaborating on API specifications using a web inter
 2. Install dependencies
 
    ```sh
-   # Root (if applicable, e.g., for monorepo tools)
-   # pnpm install
-
-   # Frontend
-   cd frontend
-   pnpm install
-
-   # Backend
-   cd backend
-   uv venv  # Create .venv if it doesn't exist
-   uv pip sync requirements.lock # Install dependencies
+   # Use the Makefile for easy setup
+   make install
+   
+   # Or manually:
+   # Frontend: cd frontend && pnpm install
+   # Backend: cd backend && uv sync
    ```
 
 ### Running the Application
 
-- Frontend: `cd frontend && pnpm dev`
-- Backend: `cd backend && uv run uvicorn main:app --reload`
+```sh
+# Start both frontend and backend
+make dev
+
+# Or individually:
+# Frontend: make dev-frontend
+# Backend: make dev-backend
+```
 
 ### Running with Docker Compose
 
@@ -113,7 +123,7 @@ For detailed instructions on how to set up the test environment and run these te
     ```bash
     cd backend
     # Activate your Python virtual environment if not already active
-    # e.g., source ../.venv/bin/activate
+    # e.g., source .venv/bin/activate
     pytest
     cd ..
     ```

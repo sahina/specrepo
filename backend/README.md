@@ -74,10 +74,8 @@ To run the automated tests for the backend:
 4. **Activate your virtual environment** (if you haven't already):
 
     ```bash
-    # Example if your .venv is in the project root
-    source ../.venv/bin/activate 
-    # Or if it's in the backend directory itself
-    # source .venv/bin/activate 
+    # Activate the virtual environment (located in backend directory)
+    source .venv/bin/activate 
     ```
 
 5. **Run pytest:**
@@ -300,3 +298,5 @@ pytest tests/test_n8n_notifications.py -v
 ### Disabling n8n Integration
 
 If `N8N_WEBHOOK_URL` is not set or is empty, the n8n integration will be automatically disabled. The API will continue to function normally without sending notifications.
+
+For detailed package management information, see [PACKAGE_MANAGEMENT.md](./PACKAGE_MANAGEMENT.md).

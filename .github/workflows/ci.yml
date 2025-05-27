@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./frontend
+        working-directory: ./
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -30,7 +30,7 @@ jobs:
         id: pnpm-cache
         shell: bash
         run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+          echo "STORE_PATH=$(cd frontend && pnpm store path --silent)" >> $GITHUB_OUTPUT
 
       - name: Setup pnpm cache
         uses: actions/cache@v4
@@ -40,18 +40,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Install frontend dependencies
+        run: cd frontend && pnpm install --frozen-lockfile
 
-      - name: Run ESLint
-        run: pnpm lint
+      - name: Run frontend linting
+        run: make lint-frontend
 
   lint-backend:
     name: Lint Backend
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./backend
+        working-directory: ./
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -72,70 +72,20 @@ jobs:
           path: ~/.cache/uv
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt', '**/pyproject.toml') }}
 
-      - name: Install dependencies
+      - name: Install backend dependencies
         run: |
-          uv pip install --system -e .[dev]
+          cd backend && uv pip install --system -e .[dev]
 
-      - name: Run ruff linting
-        run: |
-          uv tool run ruff check .
-
-      - name: Run ruff formatting check
-        run: |
-          uv tool run ruff format --check .
+      - name: Run backend linting
+        run: make lint-backend
 
   build-frontend:
-    name: Build Frontend Docker Image
+    name: Build Frontend
     runs-on: ubuntu-latest
     needs: lint-frontend # Depends on lint-frontend
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      # Optional: Login to Docker Registry (skipped for basic CI)
-      # - name: Login to Docker Hub
-      #   uses: docker/login-action@v3
-      #   with:
-      #     username: ${{ secrets.DOCKERHUB_USERNAME }}
-      #     password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Build and tag Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: ./frontend
-          file: ./frontend/Dockerfile
-          push: false # Do not push for basic CI, just build
-          tags: frontend-image:latest
-
-  build-backend:
-    name: Build Backend Docker Image
-    runs-on: ubuntu-latest
-    needs: lint-backend # Depends on lint-backend
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and tag Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: ./backend
-          file: ./backend/Dockerfile
-          push: false # Do not push for basic CI, just build
-          tags: backend-image:latest
-
-  test-frontend:
-    name: Test Frontend
-    runs-on: ubuntu-latest
-    needs: build-frontend # Depends on build-frontend
     defaults:
       run:
-        working-directory: ./frontend
+        working-directory: ./
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -154,7 +104,7 @@ jobs:
         id: pnpm-cache
         shell: bash
         run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+          echo "STORE_PATH=$(cd frontend && pnpm store path --silent)" >> $GITHUB_OUTPUT
 
       - name: Setup pnpm cache
         uses: actions/cache@v4
@@ -164,23 +114,42 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Install frontend dependencies
+        run: cd frontend && pnpm install --frozen-lockfile
 
-      - name: Run Placeholder Tests
-        run: pnpm exec echo "Frontend tests would run here"
+      - name: Build frontend
+        run: make build-frontend
+
+  build-backend-docker:
+    name: Build Backend Docker Image
+    runs-on: ubuntu-latest
+    needs: lint-backend # Depends on lint-backend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and tag Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: false # Do not push for basic CI, just build
+          tags: backend-image:latest
 
   test-backend:
     name: Test Backend
     runs-on: ubuntu-latest
-    needs: build-backend # Depends on build-backend
+    needs: lint-backend # Depends on lint-backend
     env:
       POSTGRES_USER: testuser
       POSTGRES_PASSWORD: testpassword
       POSTGRES_DB: appdb_test
     defaults:
       run:
-        working-directory: ./backend
+        working-directory: ./
     services:
       postgres:
         image: postgres:15-alpine
@@ -215,9 +184,9 @@ jobs:
           path: ~/.cache/uv
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt', '**/pyproject.toml') }}
 
-      - name: Install dependencies
+      - name: Install backend dependencies
         run: |
-          uv pip install --system -e .[dev]
+          cd backend && uv pip install --system -e .[dev]
 
       - name: Wait for PostgreSQL
         run: |
@@ -226,8 +195,114 @@ jobs:
             sleep 2
           done
 
-      - name: Run tests
+      - name: Run backend tests
         env:
           TEST_DATABASE_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@localhost:5432/${{ env.POSTGRES_DB }}
-        run: uv run pytest tests/ -v
-# End of jobs
+        run: make test-backend
+
+  ci-build:
+    name: CI Build
+    runs-on: ubuntu-latest
+    needs: [build-frontend, build-backend-docker, test-backend]
+    defaults:
+      run:
+        working-directory: ./
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.10.0"
+
+      - name: Install frontend dependencies
+        run: cd frontend && pnpm install --frozen-lockfile
+
+      - name: Run CI build
+        run: make ci-build
+
+  ci-test:
+    name: CI Test Suite
+    runs-on: ubuntu-latest
+    needs: [lint-frontend, lint-backend]
+    env:
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpassword
+      POSTGRES_DB: appdb_test
+    defaults:
+      run:
+        working-directory: ./
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.10.0"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Configure caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+            ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/requirements.txt', '**/pyproject.toml', '**/pnpm-lock.yaml') }}
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(cd frontend && pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Install all dependencies
+        run: |
+          cd frontend && pnpm install --frozen-lockfile
+          cd backend && uv pip install --system -e .[dev]
+
+      - name: Wait for PostgreSQL
+        run: |
+          until pg_isready -h localhost -p 5432 -U ${{ env.POSTGRES_USER }}; do
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
+
+      - name: Run CI test suite
+        env:
+          TEST_DATABASE_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@localhost:5432/${{ env.POSTGRES_DB }}
+        run: make ci-test
