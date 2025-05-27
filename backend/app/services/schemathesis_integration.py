@@ -49,9 +49,7 @@ class AuthenticationHandler:
             if username and password:
                 import base64
 
-                credentials = base64.b64encode(
-                    f"{username}:{password}".encode()
-                ).decode()
+                credentials = base64.b64encode(f"{username}:{password}".encode()).decode()
                 headers["Authorization"] = f"Basic {credentials}"
 
         return headers
@@ -102,9 +100,7 @@ class SchemathesisTestRunner:
 
         try:
             # Create a Schemathesis schema from the OpenAPI spec
-            schema = schemathesis.from_dict(
-                openapi_spec, base_url=provider_url
-            )
+            schema = schemathesis.from_dict(openapi_spec, base_url=provider_url)
 
             # Configure test strategies
             if test_strategies:
@@ -187,9 +183,7 @@ class SchemathesisTestRunner:
             self.results["errors"].append(f"Test execution error: {str(e)}")
 
         end_time = datetime.now()
-        self.results["execution_time"] = (
-            end_time - start_time
-        ).total_seconds()
+        self.results["execution_time"] = (end_time - start_time).total_seconds()
 
         # Generate summary
         self._generate_summary()
@@ -215,13 +209,8 @@ class SchemathesisTestRunner:
             result["issues"].append(f"Server error: {response.status_code}")
 
         # Check response time (basic performance check)
-        if (
-            hasattr(response, "elapsed")
-            and response.elapsed.total_seconds() > 30
-        ):
-            result["issues"].append(
-                f"Slow response: {response.elapsed.total_seconds()}s"
-            )
+        if hasattr(response, "elapsed") and response.elapsed.total_seconds() > 30:
+            result["issues"].append(f"Slow response: {response.elapsed.total_seconds()}s")
 
         # Additional validation could be added here
         # (schema validation, business logic checks, etc.)
@@ -284,9 +273,7 @@ class SchemathesisIntegrationService:
     ) -> ValidationRun:
         """Execute a validation run asynchronously."""
         validation_run = (
-            db.query(ValidationRun)
-            .filter(ValidationRun.id == validation_run_id)
-            .first()
+            db.query(ValidationRun).filter(ValidationRun.id == validation_run_id).first()
         )
 
         if not validation_run:
@@ -300,9 +287,7 @@ class SchemathesisIntegrationService:
             # Get the API specification
             api_spec = (
                 db.query(APISpecification)
-                .filter(
-                    APISpecification.id == validation_run.api_specification_id
-                )
+                .filter(APISpecification.id == validation_run.api_specification_id)
                 .first()
             )
 
@@ -319,9 +304,7 @@ class SchemathesisIntegrationService:
             )
 
             # Run the tests
-            test_runner = SchemathesisTestRunner(
-                timeout=validation_run.timeout
-            )
+            test_runner = SchemathesisTestRunner(timeout=validation_run.timeout)
             results = await test_runner.run_tests(
                 openapi_spec=api_spec.openapi_content,
                 provider_url=validation_run.provider_url,
@@ -336,9 +319,7 @@ class SchemathesisIntegrationService:
             validation_run.status = ValidationRunStatus.COMPLETED.value
 
         except Exception as e:
-            logger.error(
-                f"Error executing validation run {validation_run_id}: {e}"
-            )
+            logger.error(f"Error executing validation run {validation_run_id}: {e}")
             validation_run.schemathesis_results = {
                 "error": str(e),
                 "timestamp": datetime.now().isoformat(),
@@ -360,9 +341,7 @@ class SchemathesisIntegrationService:
         limit: int = 100,
     ) -> Tuple[List[ValidationRun], int]:
         """Get validation runs with filtering and pagination."""
-        query = db.query(ValidationRun).filter(
-            ValidationRun.user_id == user_id
-        )
+        query = db.query(ValidationRun).filter(ValidationRun.user_id == user_id)
 
         if api_specification_id:
             query = query.filter(

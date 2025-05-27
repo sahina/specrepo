@@ -18,8 +18,43 @@ install: ## Install all dependencies (frontend and backend)
 	@echo "Installing frontend dependencies..."
 	cd frontend && pnpm install
 	@echo "Setting up backend virtual environment and dependencies..."
-	cd backend && uv venv && uv pip sync requirements.lock
+	@if [ ! -d .venv ]; then python -m venv .venv; fi
+	.venv/bin/uv pip install -r backend/pyproject.toml
 	@echo "All dependencies installed successfully!"
+
+install-backend: ## Install only backend dependencies
+	@if [ ! -d .venv ]; then python -m venv .venv; fi
+	.venv/bin/uv pip install -r backend/pyproject.toml
+
+install-frontend: ## Install only frontend dependencies
+	cd frontend && pnpm install
+
+sync: ## Sync all dependencies to latest compatible versions
+	@echo "Syncing backend dependencies..."
+	@if [ ! -d .venv ]; then python -m venv .venv; fi
+	.venv/bin/uv pip install -r backend/pyproject.toml
+	@echo "Syncing frontend dependencies..."
+	cd frontend && pnpm install
+	@echo "All dependencies synced!"
+
+add-dep: ## Add a new backend dependency (usage: make add-dep PACKAGE=fastapi)
+	.venv/bin/uv pip install $(PACKAGE)
+
+add-dev-dep: ## Add a new backend dev dependency (usage: make add-dev-dep PACKAGE=pytest)
+	.venv/bin/uv pip install $(PACKAGE)
+
+remove-dep: ## Remove a backend dependency (usage: make remove-dep PACKAGE=fastapi)
+	.venv/bin/uv pip uninstall $(PACKAGE)
+
+update-deps: ## Update all backend dependencies to latest versions
+	.venv/bin/uv pip install --upgrade -r backend/pyproject.toml
+
+lock: ## Update lock files for both frontend and backend
+	.venv/bin/uv pip freeze > backend/requirements.txt
+	cd frontend && pnpm install --lockfile-only
+
+configure-ide: ## Show IDE configuration instructions for Python interpreter
+	.venv/bin/python backend/configure_ide.py
 
 setup-env: ## Setup environment files from examples
 	@if [ ! -f .env ]; then \
@@ -40,7 +75,7 @@ dev: ## Start development servers (frontend and backend)
 	@echo "Backend will be available at http://localhost:8000"
 	@echo "Press Ctrl+C to stop both servers"
 	@trap 'kill %1 %2' INT; \
-	cd backend && uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000 & \
+	cd backend && ../.venv/bin/uvicorn main:app --reload --host 0.0.0.0 --port 8000 & \
 	cd frontend && pnpm dev & \
 	wait
 
@@ -48,7 +83,7 @@ dev-frontend: ## Start only frontend development server
 	cd frontend && pnpm dev
 
 dev-backend: ## Start only backend development server
-	cd backend && uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
+	cd backend && ../.venv/bin/uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 # =============================================================================
 # Building
@@ -73,13 +108,13 @@ test: ## Run all tests (backend and frontend)
 	$(MAKE) lint-frontend
 
 test-backend: ## Run backend tests with pytest
-	cd backend && uv run pytest -v
+	cd backend && ../.venv/bin/pytest -v
 
 test-backend-coverage: ## Run backend tests with coverage report
-	cd backend && uv run pytest --cov=app --cov-report=html --cov-report=term-missing -v
+	cd backend && ../.venv/bin/pytest --cov=app --cov-report=html --cov-report=term-missing -v
 
 test-watch: ## Run backend tests in watch mode
-	cd backend && uv run pytest-watch
+	cd backend && ../.venv/bin/pytest-watch
 
 # =============================================================================
 # Linting and Code Quality
@@ -90,13 +125,13 @@ lint: ## Run linting for both frontend and backend
 	$(MAKE) lint-frontend
 
 lint-backend: ## Run backend linting with ruff
-	cd backend && uv run ruff check .
+	cd backend && ../.venv/bin/ruff check .
 
 lint-backend-fix: ## Run backend linting with auto-fix
-	cd backend && uv run ruff check . --fix
+	cd backend && ../.venv/bin/ruff check . --fix
 
 format-backend: ## Format backend code with ruff
-	cd backend && uv run ruff format .
+	cd backend && ../.venv/bin/ruff format .
 
 lint-frontend: ## Run frontend linting with eslint
 	cd frontend && pnpm lint
@@ -112,16 +147,16 @@ format-frontend: ## Format frontend code with prettier
 # =============================================================================
 
 migrate: ## Run database migrations
-	cd backend && uv run alembic upgrade head
+	cd backend && ../.venv/bin/alembic upgrade head
 
 migrate-create: ## Create a new migration (usage: make migrate-create MESSAGE="description")
-	cd backend && uv run alembic revision --autogenerate -m "$(MESSAGE)"
+	cd backend && ../.venv/bin/alembic revision --autogenerate -m "$(MESSAGE)"
 
 migrate-downgrade: ## Downgrade database by one migration
-	cd backend && uv run alembic downgrade -1
+	cd backend && ../.venv/bin/alembic downgrade -1
 
 migrate-history: ## Show migration history
-	cd backend && uv run alembic history
+	cd backend && ../.venv/bin/alembic history
 
 db-reset: ## Reset database (WARNING: destroys all data)
 	@echo "WARNING: This will destroy all database data!"
