@@ -152,7 +152,7 @@ def verify_workflow_configuration():
     print("WORKFLOW CONFIGURATION VERIFICATION")
     print("=" * 60)
 
-    workflow_path = "n8n/workflows/api-spec-notification.json"
+    workflow_path = "n8n/workflows/unified-notification.json"
 
     if not os.path.exists(workflow_path):
         print(f"❌ Workflow file not found: {workflow_path}")

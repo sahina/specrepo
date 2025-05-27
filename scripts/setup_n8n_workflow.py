@@ -18,7 +18,7 @@ class N8nWorkflowSetup:
 
     def __init__(self, n8n_base_url: str = "http://localhost:5678"):
         self.n8n_base_url = n8n_base_url
-        self.workflow_file = Path("n8n/workflows/api-spec-notification.json")
+        self.workflow_file = Path("n8n/workflows/unified-notification.json")
         self.api_key = os.getenv("N8N_API_KEY", "specrepo-n8n-api-key-2024")
         self.headers = {
             "Content-Type": "application/json",
@@ -149,7 +149,7 @@ class N8nWorkflowSetup:
         """Test the webhook endpoint after setup."""
         print("\n🧪 Testing webhook endpoint...")
 
-        webhook_url = f"{self.n8n_base_url}/webhook-test/api-spec-notification"
+        webhook_url = f"{self.n8n_base_url}/webhook-test/notification"
         test_payload = {
             "event_type": "created",
             "specification_id": 999,

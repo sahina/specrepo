@@ -336,3 +336,58 @@ class TestValidationEndpoints:
         response = client.get("/api/validations")
 
         assert response.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_validation_triggers_n8n_notification(
+        self,
+        db_session: Session,
+        sample_user: User,
+        sample_api_specification: APISpecification,
+        auth_headers: dict,
+    ):
+        """Test that validation runs trigger n8n notifications."""
+        from unittest.mock import patch
+
+        from app.services.schemathesis_integration import SchemathesisIntegrationService
+
+        # Mock the n8n service
+        with (
+            patch(
+                "app.services.n8n_notifications.n8n_service.send_validation_completed"
+            ) as mock_completed,
+            patch(
+                "app.services.n8n_notifications.n8n_service.send_validation_failed"
+            ) as mock_failed,
+        ):
+            mock_completed.return_value = True
+            mock_failed.return_value = True
+
+            # Create a validation run
+            validation_run = await SchemathesisIntegrationService.create_validation_run(
+                db=db_session,
+                api_specification_id=sample_api_specification.id,
+                provider_url="https://httpbin.org",
+                user_id=sample_user.id,
+                auth_method=AuthMethod.NONE,
+                max_examples=5,
+                timeout=30,
+            )
+
+            # Execute the validation run (this should trigger notifications)
+            await SchemathesisIntegrationService.execute_validation_run(
+                db=db_session, validation_run_id=validation_run.id
+            )
+
+            # Verify that a notification was sent
+            # Since the validation might succeed or fail, check that at least one notification was called
+            assert mock_completed.called or mock_failed.called
+
+            # Get the updated validation run
+            db_session.refresh(validation_run)
+
+            # Verify the validation run has results
+            assert validation_run.schemathesis_results is not None
+            assert validation_run.status in [
+                ValidationRunStatus.COMPLETED.value,
+                ValidationRunStatus.FAILED.value,
+            ]

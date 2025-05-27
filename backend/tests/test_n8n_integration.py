@@ -7,10 +7,7 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from app.services.n8n_notifications import (
-    N8nNotificationService,
-    N8nWebhookPayload,
-)
+from app.services.n8n_notifications import N8nNotificationService, N8nWebhookPayload
 
 
 class TestN8nWorkflowIntegration:
@@ -21,7 +18,7 @@ class TestN8nWorkflowIntegration:
         """Get the n8n webhook URL from environment or use default."""
         return os.getenv(
             "N8N_WEBHOOK_URL",
-            "http://localhost:5678/webhook-test/api-spec-notification",
+            "http://localhost:5678/webhook-test/notification",
         )
 
     @pytest.fixture
@@ -31,8 +28,7 @@ class TestN8nWorkflowIntegration:
             "openapi": "3.0.0",
             "info": {
                 "title": "Test API",
-                "description": "A comprehensive test API for integration "
-                "testing",
+                "description": "A comprehensive test API for integration testing",
                 "version": "1.0.0",
                 "contact": {
                     "name": "API Support",
@@ -58,8 +54,7 @@ class TestN8nWorkflowIntegration:
                                         "schema": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/components/schemas/"
-                                                "User"
+                                                "$ref": "#/components/schemas/User"
                                             },
                                         }
                                     }
@@ -74,10 +69,7 @@ class TestN8nWorkflowIntegration:
                             "required": True,
                             "content": {
                                 "application/json": {
-                                    "schema": {
-                                        "$ref": "#/components/schemas/"
-                                        "CreateUser"
-                                    }
+                                    "schema": {"$ref": "#/components/schemas/CreateUser"}
                                 }
                             },
                         },
@@ -86,9 +78,7 @@ class TestN8nWorkflowIntegration:
                                 "description": "User created successfully",
                                 "content": {
                                     "application/json": {
-                                        "schema": {
-                                            "$ref": "#/components/schemas/User"
-                                        }
+                                        "schema": {"$ref": "#/components/schemas/User"}
                                     }
                                 },
                             }
@@ -192,13 +182,9 @@ class TestN8nWorkflowIntegration:
                     print("✅ Webhook endpoint is working correctly")
                 else:
                     print(
-                        "⚠️ Webhook returned 404 - workflow may not be "
-                        "active or imported"
+                        "⚠️ Webhook returned 404 - workflow may not be active or imported"
                     )
-                    print(
-                        "💡 Follow setup instructions to import and activate "
-                        "workflow"
-                    )
+                    print("💡 Follow setup instructions to import and activate workflow")
 
         except httpx.RequestError as e:
             pytest.skip(f"Cannot reach webhook endpoint: {e}")
@@ -300,8 +286,7 @@ class TestN8nWorkflowIntegration:
                 "openapi": "3.0.0",
                 "info": {
                     "title": "Complex API",
-                    "description": "An API with complex schemas and multiple "
-                    "endpoints",
+                    "description": "An API with complex schemas and multiple endpoints",
                     "version": "2.0.0",
                 },
                 "components": {
@@ -337,8 +322,7 @@ class TestN8nWorkflowIntegration:
                                     "content": {
                                         "application/json": {
                                             "schema": {
-                                                "$ref": "#/components/schemas/"
-                                                "User"
+                                                "$ref": "#/components/schemas/User"
                                             }
                                         }
                                     },
@@ -370,7 +354,7 @@ class TestN8nWorkflowIntegration:
         webhook_url = os.getenv("N8N_WEBHOOK_URL")
         if webhook_url:
             assert "n8n" in webhook_url or "localhost" in webhook_url
-            assert "api-spec-notification" in webhook_url
+            assert "notification" in webhook_url
             print(f"✅ N8N_WEBHOOK_URL configured: {webhook_url}")
         else:
             print("⚠️ N8N_WEBHOOK_URL not set in environment")
@@ -390,9 +374,7 @@ class TestN8nWorkflowIntegration:
         print("\n📋 Required docker-compose environment variables:")
         print("   backend:")
         print("     environment:")
-        print(
-            "       - N8N_WEBHOOK_URL=http://n8n:5678/webhook-test/api-spec-notification"
-        )
+        print("       - N8N_WEBHOOK_URL=http://n8n:5678/webhook-test/notification")
         print("       - N8N_WEBHOOK_SECRET=specrepo-n8n-secret-2024")
         print(f"       - N8N_MAX_RETRIES={max_retries}")
         print(f"       - N8N_RETRY_DELAY_SECONDS={retry_delay}")
@@ -446,9 +428,7 @@ class TestN8nWorkflowIntegration:
             print("✅ Backend service handles disabled state correctly")
 
     @pytest.mark.asyncio
-    async def test_webhook_response_format(
-        self, n8n_webhook_url, created_event_payload
-    ):
+    async def test_webhook_response_format(self, n8n_webhook_url, created_event_payload):
         """Test that webhook response follows expected format."""
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -507,13 +487,11 @@ class TestN8nWorkflowIntegration:
         current_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.dirname(os.path.dirname(current_dir))
         workflow_path = os.path.join(
-            project_root, "n8n", "workflows", "api-spec-notification.json"
+            project_root, "n8n", "workflows", "unified-notification.json"
         )
 
         # Check if workflow file exists
-        assert os.path.exists(workflow_path), (
-            f"Workflow file not found: {workflow_path}"
-        )
+        assert os.path.exists(workflow_path), f"Workflow file not found: {workflow_path}"
 
         # Load and validate workflow JSON
         with open(workflow_path, "r") as f:
@@ -528,7 +506,7 @@ class TestN8nWorkflowIntegration:
         node_types = [node.get("type", "") for node in workflow_data["nodes"]]
         assert "n8n-nodes-base.webhook" in node_types
         assert "n8n-nodes-base.emailSend" in node_types
-        assert "n8n-nodes-base.if" in node_types
+        assert "n8n-nodes-base.switch" in node_types
         assert "n8n-nodes-base.respondToWebhook" in node_types
 
         # Check webhook configuration
@@ -539,7 +517,7 @@ class TestN8nWorkflowIntegration:
         ]
         assert len(webhook_nodes) == 1
         webhook_node = webhook_nodes[0]
-        assert webhook_node["parameters"]["path"] == "api-spec-notification"
+        assert webhook_node["parameters"]["path"] == "notification"
 
         print("✅ Workflow configuration is valid")
 
@@ -571,9 +549,7 @@ class TestN8nWorkflowIntegration:
         missing_areas = set(required_test_areas) - set(covered_areas)
         assert not missing_areas, f"Missing test coverage for: {missing_areas}"
 
-        print(
-            f"✅ Integration test coverage complete: {len(test_methods)} tests"
-        )
+        print(f"✅ Integration test coverage complete: {len(test_methods)} tests")
         print(f"   Covered areas: {', '.join(sorted(set(covered_areas)))}")
 
 
@@ -593,7 +569,7 @@ if __name__ == "__main__":
         print("=== Service Availability ===")
         webhook_url = os.getenv(
             "N8N_WEBHOOK_URL",
-            "http://localhost:5678/webhook-test/api-spec-notification",
+            "http://localhost:5678/webhook-test/notification",
         )
         try:
             await test_instance.test_n8n_service_availability()
