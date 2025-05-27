@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.models import APISpecification, ValidationRun
 from app.schemas import AuthMethod, ValidationRunStatus
+from app.services.n8n_notifications import n8n_service
 
 logger = logging.getLogger(__name__)
 
@@ -318,6 +319,15 @@ class SchemathesisIntegrationService:
             validation_run.schemathesis_results = results
             validation_run.status = ValidationRunStatus.COMPLETED.value
 
+            # Send n8n notification for successful completion
+            try:
+                await n8n_service.send_validation_completed(validation_run, api_spec)
+            except Exception as notification_error:
+                logger.warning(
+                    f"Failed to send n8n notification for completed validation "
+                    f"{validation_run_id}: {notification_error}"
+                )
+
         except Exception as e:
             logger.error(f"Error executing validation run {validation_run_id}: {e}")
             validation_run.schemathesis_results = {
@@ -325,6 +335,15 @@ class SchemathesisIntegrationService:
                 "timestamp": datetime.now().isoformat(),
             }
             validation_run.status = ValidationRunStatus.FAILED.value
+
+            # Send n8n notification for failure
+            try:
+                await n8n_service.send_validation_failed(validation_run, api_spec)
+            except Exception as notification_error:
+                logger.warning(
+                    f"Failed to send n8n notification for failed validation "
+                    f"{validation_run_id}: {notification_error}"
+                )
 
         db.commit()
         db.refresh(validation_run)
@@ -394,6 +413,21 @@ class SchemathesisIntegrationService:
             validation_run.status = ValidationRunStatus.CANCELLED.value
             db.commit()
             db.refresh(validation_run)
+
+            # Send n8n notification for cancellation
+            try:
+                api_spec = (
+                    db.query(APISpecification)
+                    .filter(APISpecification.id == validation_run.api_specification_id)
+                    .first()
+                )
+                if api_spec:
+                    await n8n_service.send_validation_failed(validation_run, api_spec)
+            except Exception as notification_error:
+                logger.warning(
+                    f"Failed to send n8n notification for cancelled validation "
+                    f"{validation_run.id}: {notification_error}"
+                )
 
         return validation_run
 

@@ -25,7 +25,7 @@ class N8nWebhookTester:
     def __init__(self):
         self.webhook_url = os.getenv(
             "N8N_WEBHOOK_URL",
-            "http://localhost:5678/webhook-test/api-spec-notification",
+            "http://localhost:5678/webhook-test/notification",
         )
         self.webhook_secret = os.getenv("N8N_WEBHOOK_SECRET")
         self.base_url = self.webhook_url.split("/webhook")[0]

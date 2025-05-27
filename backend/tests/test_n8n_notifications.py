@@ -6,9 +6,10 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from app.models import APISpecification, User
+from app.models import APISpecification, User, ValidationRun
 from app.services.n8n_notifications import (
     N8nNotificationService,
+    N8nValidationWebhookPayload,
     N8nWebhookPayload,
 )
 from main import app
@@ -64,6 +65,98 @@ class TestN8nWebhookPayload:
             "user_id": 456,
             "timestamp": "2023-01-02T00:00:00",
             "openapi_content": {"openapi": "3.0.0"},
+        }
+
+        assert data == expected
+
+
+class TestN8nValidationWebhookPayload:
+    """Test the N8nValidationWebhookPayload Pydantic model."""
+
+    def test_validation_webhook_payload_creation(self):
+        """Test creating a validation webhook payload with valid data."""
+        payload = N8nValidationWebhookPayload(
+            event_type="validation_completed",
+            validation_run_id=1,
+            specification_id=2,
+            specification_name="Test API",
+            provider_url="https://api.example.com",
+            user_id=123,
+            status="completed",
+            timestamp="2023-01-01T00:00:00",
+            validation_results={
+                "total_tests": 10,
+                "passed_tests": 8,
+                "failed_tests": 2,
+            },
+            validation_statistics={
+                "success_rate": 80.0,
+                "execution_time": 30.5,
+                "error_count": 0,
+            },
+        )
+
+        assert payload.event_type == "validation_completed"
+        assert payload.validation_run_id == 1
+        assert payload.specification_id == 2
+        assert payload.specification_name == "Test API"
+        assert payload.provider_url == "https://api.example.com"
+        assert payload.user_id == 123
+        assert payload.status == "completed"
+        assert payload.timestamp == "2023-01-01T00:00:00"
+        assert payload.validation_results["total_tests"] == 10
+        assert payload.validation_statistics["success_rate"] == 80.0
+
+    def test_validation_webhook_payload_with_none_results(self):
+        """Test creating a validation webhook payload with None results."""
+        payload = N8nValidationWebhookPayload(
+            event_type="validation_failed",
+            validation_run_id=2,
+            specification_id=3,
+            specification_name="Failed API",
+            provider_url="https://api.failed.com",
+            user_id=456,
+            status="failed",
+            timestamp="2023-01-02T00:00:00",
+            validation_results=None,
+            validation_statistics={
+                "error_count": 1,
+                "error_message": "Connection failed",
+            },
+        )
+
+        assert payload.event_type == "validation_failed"
+        assert payload.validation_run_id == 2
+        assert payload.validation_results is None
+        assert payload.validation_statistics["error_count"] == 1
+
+    def test_validation_webhook_payload_model_dump(self):
+        """Test that the validation payload can be serialized to dict."""
+        payload = N8nValidationWebhookPayload(
+            event_type="validation_completed",
+            validation_run_id=1,
+            specification_id=2,
+            specification_name="Test API",
+            provider_url="https://api.example.com",
+            user_id=123,
+            status="completed",
+            timestamp="2023-01-01T00:00:00",
+            validation_results={"total_tests": 5},
+            validation_statistics={"success_rate": 100.0},
+        )
+
+        data = payload.model_dump()
+        expected = {
+            "event_type": "validation_completed",
+            "validation_run_id": 1,
+            "specification_id": 2,
+            "specification_name": "Test API",
+            "provider_url": "https://api.example.com",
+            "user_id": 123,
+            "status": "completed",
+            "timestamp": "2023-01-01T00:00:00",
+            "validation_results": {"total_tests": 5},
+            "validation_statistics": {"success_rate": 100.0},
         }
 
         assert data == expected
@@ -151,6 +244,43 @@ class TestN8nNotificationService:
             spec.updated_at = datetime(2023, 1, 2, 0, 0, 0)
 
         return spec
+
+    def create_mock_validation_run(self, run_id=1, status="completed"):
+        """Helper to create a mock validation run."""
+        validation_run = MagicMock(spec=ValidationRun)
+        validation_run.id = run_id
+        validation_run.api_specification_id = 1
+        validation_run.provider_url = "https://api.example.com"
+        validation_run.user_id = 123
+        validation_run.status = status
+        validation_run.triggered_at = datetime(2023, 1, 1, 0, 0, 0)
+
+        if status == "completed":
+            validation_run.schemathesis_results = {
+                "total_tests": 10,
+                "passed_tests": 8,
+                "failed_tests": 2,
+                "execution_time": 30.5,
+                "errors": [],
+                "test_results": [{"test": "result1"}, {"test": "result2"}],
+                "summary": {
+                    "success_rate": 80.0,
+                    "total_tests": 10,
+                    "passed_tests": 8,
+                    "failed_tests": 2,
+                    "error_count": 0,
+                    "execution_time": 30.5,
+                },
+            }
+        elif status == "failed":
+            validation_run.schemathesis_results = {
+                "error": "Connection failed",
+                "timestamp": "2023-01-01T00:00:00",
+            }
+        else:
+            validation_run.schemathesis_results = None
+
+        return validation_run
 
     @pytest.mark.asyncio
     async def test_send_specification_created_disabled(self):
@@ -362,18 +492,14 @@ class TestN8nNotificationService:
             mock_response.status_code = status_code
             mock_client = AsyncMock()
             mock_client.post.return_value = mock_response
-            mock_client_class.return_value.__aenter__.return_value = (
-                mock_client
-            )
+            mock_client_class.return_value.__aenter__.return_value = mock_client
 
             service = N8nNotificationService()
             spec = self.create_mock_specification()
 
             result = await service.send_specification_created(spec)
 
-            assert result is True, (
-                f"Status code {status_code} should be successful"
-            )
+            assert result is True, f"Status code {status_code} should be successful"
 
     @pytest.mark.asyncio
     @patch("httpx.AsyncClient")
@@ -399,6 +525,175 @@ class TestN8nNotificationService:
 
         assert result is True
         assert mock_client.post.call_count == 2  # First failure, then success
+
+    @pytest.mark.asyncio
+    async def test_send_validation_completed_disabled(self):
+        """Test send_validation_completed when notifications are disabled."""
+        os.environ.pop("N8N_WEBHOOK_URL", None)
+        service = N8nNotificationService()
+        validation_run = self.create_mock_validation_run()
+        api_spec = self.create_mock_specification()
+
+        result = await service.send_validation_completed(validation_run, api_spec)
+
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_send_validation_failed_disabled(self):
+        """Test send_validation_failed when notifications are disabled."""
+        os.environ.pop("N8N_WEBHOOK_URL", None)
+        service = N8nNotificationService()
+        validation_run = self.create_mock_validation_run(status="failed")
+        api_spec = self.create_mock_specification()
+
+        result = await service.send_validation_failed(validation_run, api_spec)
+
+        assert result is True
+
+    @pytest.mark.asyncio
+    @patch("httpx.AsyncClient")
+    async def test_send_validation_completed_success(self, mock_client_class):
+        """Test successful send_validation_completed."""
+        os.environ["N8N_WEBHOOK_URL"] = "https://test.webhook.url"
+        os.environ["N8N_WEBHOOK_SECRET"] = "test-secret"
+
+        # Mock the response
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+        mock_client_class.return_value.__aenter__.return_value = mock_client
+
+        service = N8nNotificationService()
+        validation_run = self.create_mock_validation_run()
+        api_spec = self.create_mock_specification()
+
+        result = await service.send_validation_completed(validation_run, api_spec)
+
+        assert result is True
+        mock_client.post.assert_called_once()
+
+        # Verify the call arguments
+        call_args = mock_client.post.call_args
+        assert call_args[1]["json"]["event_type"] == "validation_completed"
+        assert call_args[1]["json"]["validation_run_id"] == 1
+        assert call_args[1]["json"]["specification_id"] == 1
+        assert call_args[1]["json"]["provider_url"] == "https://api.example.com"
+        assert call_args[1]["headers"]["X-N8N-Webhook-Secret"] == "test-secret"
+
+    @pytest.mark.asyncio
+    @patch("httpx.AsyncClient")
+    async def test_send_validation_failed_success(self, mock_client_class):
+        """Test successful send_validation_failed."""
+        os.environ["N8N_WEBHOOK_URL"] = "https://test.webhook.url"
+
+        # Mock the response
+        mock_response = MagicMock()
+        mock_response.status_code = 201
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+        mock_client_class.return_value.__aenter__.return_value = mock_client
+
+        service = N8nNotificationService()
+        validation_run = self.create_mock_validation_run(status="failed")
+        api_spec = self.create_mock_specification()
+
+        result = await service.send_validation_failed(validation_run, api_spec)
+
+        assert result is True
+        mock_client.post.assert_called_once()
+
+        # Verify the call arguments
+        call_args = mock_client.post.call_args
+        assert call_args[1]["json"]["event_type"] == "validation_failed"
+        assert call_args[1]["json"]["status"] == "failed"
+
+    def test_extract_validation_statistics_with_complete_results(self):
+        """Test extracting statistics from complete validation results."""
+        service = N8nNotificationService()
+        results = {
+            "total_tests": 10,
+            "passed_tests": 8,
+            "failed_tests": 2,
+            "execution_time": 30.5,
+            "errors": ["error1"],
+            "test_results": [{"test": "result1"}, {"test": "result2"}],
+            "summary": {
+                "success_rate": 80.0,
+                "total_tests": 10,
+                "passed_tests": 8,
+                "failed_tests": 2,
+                "error_count": 1,
+                "execution_time": 30.5,
+            },
+        }
+
+        stats = service._extract_validation_statistics(results)
+
+        assert stats["total_tests"] == 10
+        assert stats["passed_tests"] == 8
+        assert stats["failed_tests"] == 2
+        assert stats["success_rate"] == 80.0
+        assert stats["execution_time"] == 30.5
+        assert stats["error_count"] == 1
+        assert stats["test_results_count"] == 2
+
+    def test_extract_validation_statistics_with_error(self):
+        """Test extracting statistics from error results."""
+        service = N8nNotificationService()
+        results = {
+            "error": "Connection failed",
+            "timestamp": "2023-01-01T00:00:00",
+        }
+
+        stats = service._extract_validation_statistics(results)
+
+        assert stats["total_tests"] == 0
+        assert stats["passed_tests"] == 0
+        assert stats["failed_tests"] == 0
+        assert stats["success_rate"] == 0.0
+        assert stats["execution_time"] == 0.0
+        assert stats["error_count"] == 1
+        assert stats["error_message"] == "Connection failed"
+
+    def test_extract_validation_statistics_with_none(self):
+        """Test extracting statistics from None results."""
+        service = N8nNotificationService()
+
+        stats = service._extract_validation_statistics(None)
+
+        assert stats["total_tests"] == 0
+        assert stats["passed_tests"] == 0
+        assert stats["failed_tests"] == 0
+        assert stats["success_rate"] == 0.0
+        assert stats["execution_time"] == 0.0
+        assert stats["error_count"] == 0
+
+    @pytest.mark.asyncio
+    @patch("httpx.AsyncClient")
+    async def test_send_validation_webhook_retry_logic(self, mock_client_class):
+        """Test validation webhook retry logic on failure."""
+        os.environ["N8N_WEBHOOK_URL"] = "https://test.webhook.url"
+        os.environ["N8N_MAX_RETRIES"] = "2"
+        os.environ["N8N_RETRY_DELAY_SECONDS"] = "1"
+
+        # Mock failed responses
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Internal Server Error"
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+        mock_client_class.return_value.__aenter__.return_value = mock_client
+
+        service = N8nNotificationService()
+        validation_run = self.create_mock_validation_run()
+        api_spec = self.create_mock_specification()
+
+        with patch("time.sleep"):  # Mock sleep to speed up test
+            result = await service.send_validation_completed(validation_run, api_spec)
+
+        assert result is False
+        assert mock_client.post.call_count == 2  # Should retry once
 
 
 class TestN8nIntegrationWithAPI:
@@ -459,12 +754,8 @@ class TestN8nIntegrationWithAPI:
         os.environ.clear()
         os.environ.update(self.original_env)
 
-    @patch(
-        "app.services.n8n_notifications.n8n_service.send_specification_created"
-    )
-    @patch(
-        "app.services.api_specifications.APISpecificationService.create_specification"
-    )
+    @patch("app.services.n8n_notifications.n8n_service.send_specification_created")
+    @patch("app.services.api_specifications.APISpecificationService.create_specification")
     @patch(
         "app.services.api_specifications.APISpecificationService.check_name_version_exists"
     )
@@ -503,15 +794,9 @@ class TestN8nIntegrationWithAPI:
         # Note: BackgroundTasks runs the task immediately in tests
         mock_n8n_send.assert_called_once_with(mock_specification)
 
-    @patch(
-        "app.services.n8n_notifications.n8n_service.send_specification_updated"
-    )
-    @patch(
-        "app.services.api_specifications.APISpecificationService.update_specification"
-    )
-    @patch(
-        "app.services.api_specifications.APISpecificationService.get_specification"
-    )
+    @patch("app.services.n8n_notifications.n8n_service.send_specification_updated")
+    @patch("app.services.api_specifications.APISpecificationService.update_specification")
+    @patch("app.services.api_specifications.APISpecificationService.get_specification")
     @patch(
         "app.services.api_specifications.APISpecificationService.check_name_version_exists"
     )
@@ -544,12 +829,8 @@ class TestN8nIntegrationWithAPI:
         # Verify n8n notification was called
         mock_n8n_send.assert_called_once_with(mock_specification)
 
-    @patch(
-        "app.services.n8n_notifications.n8n_service.send_specification_created"
-    )
-    @patch(
-        "app.services.api_specifications.APISpecificationService.create_specification"
-    )
+    @patch("app.services.n8n_notifications.n8n_service.send_specification_created")
+    @patch("app.services.api_specifications.APISpecificationService.create_specification")
     @patch(
         "app.services.api_specifications.APISpecificationService.check_name_version_exists"
     )
