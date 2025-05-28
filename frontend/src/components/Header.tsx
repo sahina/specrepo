@@ -1,6 +1,11 @@
 import { useAuthStore } from "../store/authStore";
 
-export function Header() {
+interface HeaderProps {
+  currentView: string;
+  onNavigate: (view: string) => void;
+}
+
+export function Header({ currentView, onNavigate }: HeaderProps) {
   const { logout, apiKey } = useAuthStore();
 
   const handleLogout = () => {
@@ -14,15 +19,45 @@ export function Header() {
       )}${apiKey.slice(-4)}`
     : "";
 
+  const navigationItems = [
+    { id: "overview", label: "Overview" },
+    { id: "specifications", label: "Specifications" },
+    { id: "validations", label: "Validations" },
+    { id: "settings", label: "Settings" },
+  ];
+
   return (
     <header className="bg-card border-b border-border">
       <div className="container mx-auto px-4 py-4">
         <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold">SpecRepo</h1>
-            <p className="text-muted-foreground text-sm">
-              API Lifecycle Management Platform
-            </p>
+          <div className="flex items-center space-x-8">
+            <div>
+              <h1 className="text-2xl font-bold">SpecRepo</h1>
+              <p className="text-muted-foreground text-sm">
+                API Lifecycle Management Platform
+              </p>
+            </div>
+
+            {/* Navigation Menu */}
+            <nav className="hidden md:flex space-x-6">
+              {navigationItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => onNavigate(item.id)}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    currentView === item.id ||
+                    (item.id === "specifications" &&
+                      (currentView === "specification-detail" ||
+                        currentView === "specification-view" ||
+                        currentView === "specification-create"))
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </nav>
           </div>
 
           <div className="flex items-center space-x-4">

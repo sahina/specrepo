@@ -1,3 +1,4 @@
+import { MockDeployment } from "@/components/MockDeployment";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,13 +25,23 @@ import type {
   APISpecificationUpdate,
 } from "@/services/api";
 import Editor from "@monaco-editor/react";
-import { AlertCircle, ArrowLeft, Check, Loader2, Save, X } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  Check,
+  Edit,
+  Loader2,
+  Save,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 interface SpecificationDetailProps {
   specificationId?: number;
   onBack: () => void;
   onSave?: (spec: APISpecification) => void;
+  onEdit?: () => void;
+  readOnly?: boolean;
 }
 
 interface FormData {
@@ -49,6 +60,8 @@ export function SpecificationDetail({
   specificationId,
   onBack,
   onSave,
+  onEdit,
+  readOnly = false,
 }: SpecificationDetailProps) {
   const apiClient = useApiClient();
   const [loading, setLoading] = useState(false);
@@ -68,6 +81,7 @@ export function SpecificationDetail({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
   const [editorLanguage, setEditorLanguage] = useState<"json" | "yaml">("json");
+  const [justSaved, setJustSaved] = useState(false);
 
   const isCreateMode = !specificationId;
 
@@ -133,6 +147,17 @@ export function SpecificationDetail({
     }
   }, [specificationId, apiClient, isCreateMode]);
 
+  // Auto-hide the "justSaved" notification after 3 seconds
+  useEffect(() => {
+    if (justSaved) {
+      const timer = setTimeout(() => {
+        setJustSaved(false);
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [justSaved]);
+
   const validateOpenAPIContent = useCallback(
     (content: string): ValidationError[] => {
       const errors: ValidationError[] = [];
@@ -194,6 +219,7 @@ export function SpecificationDetail({
   const handleFormChange = (field: keyof FormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     setHasUnsavedChanges(true);
+    setJustSaved(false);
 
     // Validate OpenAPI content on change
     if (field === "openapi_content") {
@@ -264,6 +290,7 @@ export function SpecificationDetail({
       setSpecification(savedSpec);
       setHasUnsavedChanges(false);
       onSave?.(savedSpec);
+      setJustSaved(true);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to save specification",
@@ -312,10 +339,18 @@ export function SpecificationDetail({
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
+          {readOnly && onEdit && (
+            <Button variant="outline" size="sm" onClick={onEdit}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
+          )}
           <div>
             <h1 className="text-3xl font-bold">
               {isCreateMode
                 ? "Create API Specification"
+                : readOnly
+                ? "View API Specification"
                 : "Edit API Specification"}
             </h1>
             {specification && (
@@ -328,26 +363,28 @@ export function SpecificationDetail({
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {hasUnsavedChanges && (
-            <span className="text-sm text-muted-foreground flex items-center gap-1">
-              <AlertCircle className="h-4 w-4" />
-              Unsaved changes
-            </span>
-          )}
-          <Button
-            onClick={handleSave}
-            disabled={saving || validationErrors.length > 0}
-            className="flex items-center gap-2"
-          >
-            {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
+        {!readOnly && (
+          <div className="flex items-center gap-2">
+            {hasUnsavedChanges && (
+              <span className="text-sm text-muted-foreground flex items-center gap-1">
+                <AlertCircle className="h-4 w-4" />
+                Unsaved changes
+              </span>
             )}
-            {saving ? "Saving..." : "Save"}
-          </Button>
-        </div>
+            <Button
+              onClick={handleSave}
+              disabled={saving || validationErrors.length > 0}
+              className="flex items-center gap-2"
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              {saving ? "Saving..." : "Save"}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Error Display */}
@@ -384,14 +421,17 @@ export function SpecificationDetail({
       )}
 
       {/* Success Indicator */}
-      {!hasUnsavedChanges && !isCreateMode && validationErrors.length === 0 && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-center gap-2">
-            <Check className="h-5 w-5 text-green-600" />
-            <p className="text-green-800 font-medium">All changes saved</p>
+      {!hasUnsavedChanges &&
+        !isCreateMode &&
+        validationErrors.length === 0 &&
+        justSaved && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-center gap-2">
+              <Check className="h-5 w-5 text-green-600" />
+              <p className="text-green-800 font-medium">All changes saved</p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Form */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -410,6 +450,7 @@ export function SpecificationDetail({
                     value={formData.name}
                     onChange={(e) => handleFormChange("name", e.target.value)}
                     placeholder="Enter specification name"
+                    readOnly={readOnly}
                   />
                 </FormControl>
                 <FormDescription>
@@ -427,6 +468,7 @@ export function SpecificationDetail({
                       handleFormChange("version_string", e.target.value)
                     }
                     placeholder="e.g., 1.0.0"
+                    readOnly={readOnly}
                   />
                 </FormControl>
                 <FormDescription>Semantic version of your API</FormDescription>
@@ -449,22 +491,24 @@ export function SpecificationDetail({
           <div className="bg-card border rounded-lg overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b">
               <h2 className="text-xl font-semibold">OpenAPI Content</h2>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={toggleEditorLanguage}
-                >
-                  {editorLanguage.toUpperCase()}
-                </Button>
-              </div>
+              {!readOnly && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={toggleEditorLanguage}
+                  >
+                    {editorLanguage.toUpperCase()}
+                  </Button>
+                </div>
+              )}
             </div>
             <div className="h-[600px]">
               <Editor
                 height="100%"
                 language={editorLanguage}
                 value={formData.openapi_content}
-                onChange={handleEditorChange}
+                onChange={readOnly ? undefined : handleEditorChange}
                 theme="vs-dark"
                 options={{
                   minimap: { enabled: false },
@@ -477,12 +521,21 @@ export function SpecificationDetail({
                   automaticLayout: true,
                   formatOnPaste: true,
                   formatOnType: true,
+                  readOnly: readOnly,
                 }}
               />
             </div>
           </div>
         </div>
       </div>
+
+      {/* Mock Deployment Section */}
+      {!isCreateMode && specification && (
+        <MockDeployment
+          specificationId={specification.id}
+          specificationName={specification.name}
+        />
+      )}
 
       {/* Unsaved Changes Dialog */}
       <AlertDialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>

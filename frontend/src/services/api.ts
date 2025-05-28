@@ -357,9 +357,21 @@ class ApiClient {
     return response.data;
   }
 
-  async getWireMockStubs(): Promise<WireMockStatusResponse> {
+  async getWireMockStubs(
+    specificationId?: number,
+  ): Promise<WireMockStatusResponse> {
+    const params = new URLSearchParams();
+
+    if (specificationId !== undefined) {
+      params.append("specification_id", specificationId.toString());
+    }
+
+    const url = params.toString()
+      ? `/api/wiremock/stubs?${params.toString()}`
+      : "/api/wiremock/stubs";
+
     const response: AxiosResponse<WireMockStatusResponse> =
-      await this.client.get("/api/wiremock/stubs");
+      await this.client.get(url);
     return response.data;
   }
 
