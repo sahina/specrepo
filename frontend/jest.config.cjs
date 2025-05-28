@@ -6,7 +6,14 @@ module.exports = {
     "^@/(.*)$": "<rootDir>/src/$1",
   },
   transform: {
-    "^.+\\.(ts|tsx)$": "ts-jest",
+    "^.+\\.(ts|tsx)$": [
+      "ts-jest",
+      {
+        tsconfig: {
+          jsx: "react-jsx",
+        },
+      },
+    ],
   },
   moduleFileExtensions: ["ts", "tsx", "js", "jsx"],
   testMatch: [
@@ -19,12 +26,5 @@ module.exports = {
     "!src/main.tsx",
     "!src/vite-env.d.ts",
   ],
-  globals: {
-    "ts-jest": {
-      tsconfig: {
-        jsx: "react-jsx",
-      },
-    },
-  },
   transformIgnorePatterns: ["node_modules/(?!(.*\\.mjs$))"],
 };
