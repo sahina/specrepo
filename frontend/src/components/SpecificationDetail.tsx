@@ -1,3 +1,4 @@
+import { MockDeployment } from "@/components/MockDeployment";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -483,6 +484,14 @@ export function SpecificationDetail({
           </div>
         </div>
       </div>
+
+      {/* Mock Deployment Section */}
+      {!isCreateMode && specification && (
+        <MockDeployment
+          specificationId={specification.id}
+          specificationName={specification.name}
+        />
+      )}
 
       {/* Unsaved Changes Dialog */}
       <AlertDialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
