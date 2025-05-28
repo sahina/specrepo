@@ -106,13 +106,23 @@ describe("MockDeployment", () => {
 
     render(<MockDeployment specificationId={1} specificationName="Test API" />);
 
+    // Wait for the component to finish loading and the button to be enabled
     await waitFor(() => {
-      expect(screen.getByText("Deploy Mocks")).toBeInTheDocument();
+      expect(screen.getByText("Not deployed")).toBeInTheDocument();
+    });
+
+    // Wait for the button to be enabled
+    await waitFor(() => {
+      const deployButton = screen.getByText("Deploy Mocks");
+      expect(deployButton).not.toBeDisabled();
     });
 
     fireEvent.click(screen.getByText("Deploy Mocks"));
 
-    expect(screen.getByText("Deploy Mock API")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("Deploy Mock API")).toBeInTheDocument();
+    });
+
     expect(
       screen.getByText(/This will deploy "Test API" to WireMock/),
     ).toBeInTheDocument();
@@ -136,11 +146,23 @@ describe("MockDeployment", () => {
 
     render(<MockDeployment specificationId={1} specificationName="Test API" />);
 
+    // Wait for the component to finish loading and the button to be enabled
     await waitFor(() => {
-      expect(screen.getByText("Deploy Mocks")).toBeInTheDocument();
+      expect(screen.getByText("Not deployed")).toBeInTheDocument();
+    });
+
+    // Wait for the button to be enabled
+    await waitFor(() => {
+      const deployButton = screen.getByText("Deploy Mocks");
+      expect(deployButton).not.toBeDisabled();
     });
 
     fireEvent.click(screen.getByText("Deploy Mocks"));
+
+    // Wait for the dialog to appear
+    await waitFor(() => {
+      expect(screen.getByText("Deploy Mock API")).toBeInTheDocument();
+    });
 
     // Confirm deployment
     const deployButton = screen.getByRole("button", { name: "Deploy" });
@@ -166,11 +188,23 @@ describe("MockDeployment", () => {
 
     render(<MockDeployment specificationId={1} specificationName="Test API" />);
 
+    // Wait for the component to finish loading and the button to be enabled
     await waitFor(() => {
-      expect(screen.getByText("Deploy Mocks")).toBeInTheDocument();
+      expect(screen.getByText("Not deployed")).toBeInTheDocument();
+    });
+
+    // Wait for the button to be enabled
+    await waitFor(() => {
+      const deployButton = screen.getByText("Deploy Mocks");
+      expect(deployButton).not.toBeDisabled();
     });
 
     fireEvent.click(screen.getByText("Deploy Mocks"));
+
+    // Wait for the dialog to appear
+    await waitFor(() => {
+      expect(screen.getByText("Deploy Mock API")).toBeInTheDocument();
+    });
 
     // Confirm deployment
     const deployButton = screen.getByRole("button", { name: "Deploy" });

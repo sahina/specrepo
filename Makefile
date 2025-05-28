@@ -161,14 +161,20 @@ build-frontend: ## Build only frontend
 test: ## Run all tests (backend and frontend)
 	@echo "Running backend tests..."
 	$(MAKE) test-backend
-	@echo "Running frontend linting (no tests configured yet)..."
-	$(MAKE) lint-frontend
+	@echo "Running frontend tests..."
+	$(MAKE) test-frontend
 
 test-backend: ## Run backend tests with pytest
 	cd backend && uv run --active pytest -v
 
+test-frontend: ## Run frontend tests with Jest
+	cd frontend && pnpm test
+
 test-backend-coverage: ## Run backend tests with coverage report
 	cd backend && uv run --active pytest --cov=app --cov-report=html --cov-report=term-missing -v
+
+test-frontend-watch: ## Run frontend tests in watch mode
+	cd frontend && pnpm test:watch
 
 test-watch: ## Run backend tests in watch mode
 	cd backend && uv run --active pytest-watch

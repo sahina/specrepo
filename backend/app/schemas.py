@@ -33,9 +33,7 @@ class APISpecificationBase(BaseModel):
 
         # Basic OpenAPI structure validation
         if "openapi" not in v and "swagger" not in v:
-            raise ValueError(
-                'OpenAPI content must contain "openapi" or "swagger" field'
-            )
+            raise ValueError('OpenAPI content must contain "openapi" or "swagger" field')
 
         if "info" not in v:
             raise ValueError('OpenAPI content must contain "info" field')
@@ -68,9 +66,7 @@ class APISpecificationUpdate(BaseModel):
 
         # Basic OpenAPI structure validation
         if "openapi" not in v and "swagger" not in v:
-            raise ValueError(
-                'OpenAPI content must contain "openapi" or "swagger" field'
-            )
+            raise ValueError('OpenAPI content must contain "openapi" or "swagger" field')
 
         if "info" not in v:
             raise ValueError('OpenAPI content must contain "info" field')
@@ -79,14 +75,42 @@ class APISpecificationUpdate(BaseModel):
 
 
 class APISpecificationResponse(APISpecificationBase):
-    """Schema for API Specification response."""
+    """Schema for API Specification responses."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     id: int
     user_id: int
     created_at: datetime
     updated_at: Optional[datetime] = None
 
-    model_config = ConfigDict(from_attributes=True)
+
+class APISpecificationFilters(BaseModel):
+    """Schema for API Specification filtering and pagination."""
+
+    name: Optional[str] = None
+    version_string: Optional[str] = None
+    sort_by: str = Field(default="created_at")
+    sort_order: str = Field(default="desc")
+    page: int = Field(default=1, ge=1)
+    size: int = Field(default=10, ge=1, le=100)
+
+    @field_validator("sort_by")
+    @classmethod
+    def validate_sort_by(cls, v):
+        """Validate sort_by field."""
+        allowed_fields = ["name", "version_string", "created_at", "updated_at"]
+        if v not in allowed_fields:
+            raise ValueError(f"sort_by must be one of: {allowed_fields}")
+        return v
+
+    @field_validator("sort_order")
+    @classmethod
+    def validate_sort_order(cls, v):
+        """Validate sort_order field."""
+        if v not in ["asc", "desc"]:
+            raise ValueError("sort_order must be 'asc' or 'desc'")
+        return v
 
 
 class APISpecificationListResponse(BaseModel):
@@ -99,60 +123,130 @@ class APISpecificationListResponse(BaseModel):
     pages: int
 
 
-class APISpecificationFilters(BaseModel):
-    """Schema for API Specification filtering and sorting."""
+# Environment Management Schemas
+class EnvironmentType(str, Enum):
+    """Environment type enumeration."""
 
-    name: Optional[str] = Field(
-        None, description="Filter by name (partial match)"
+    PRODUCTION = "production"
+    STAGING = "staging"
+    DEVELOPMENT = "development"
+    CUSTOM = "custom"
+
+
+class EnvironmentBase(BaseModel):
+    """Base schema for Environment."""
+
+    name: str = Field(
+        ...,
+        min_length=1,
+        max_length=255,
+        description="Name of the environment (e.g., 'Production API', 'Staging')",
     )
-    version_string: Optional[str] = Field(
-        None, description="Filter by version string (exact match)"
+    base_url: str = Field(
+        ...,
+        min_length=1,
+        max_length=2048,
+        description="Base URL of the environment (e.g., 'https://api.example.com')",
     )
-    user_id: Optional[int] = Field(None, description="Filter by user ID")
-    sort_by: Optional[str] = Field(
-        "created_at",
-        description=(
-            "Sort field (name, version_string, created_at, updated_at)"
-        ),
+    description: Optional[str] = Field(
+        None,
+        max_length=500,
+        description="Optional description of the environment",
     )
-    sort_order: Optional[str] = Field(
-        "desc", description="Sort order (asc, desc)"
+    environment_type: EnvironmentType = Field(
+        default=EnvironmentType.CUSTOM,
+        description="Type of environment",
     )
-    page: int = Field(1, ge=1, description="Page number")
-    size: int = Field(10, ge=1, le=100, description="Page size")
+
+    @field_validator("base_url")
+    @classmethod
+    def validate_base_url(cls, v):
+        """Validate base URL format."""
+        if not v.startswith(("http://", "https://")):
+            raise ValueError("Base URL must start with http:// or https://")
+        return v.rstrip("/")  # Remove trailing slash for consistency
+
+
+class EnvironmentCreate(EnvironmentBase):
+    """Schema for creating an Environment."""
+
+    pass
+
+
+class EnvironmentUpdate(BaseModel):
+    """Schema for updating an Environment."""
+
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    base_url: Optional[str] = Field(None, min_length=1, max_length=2048)
+    description: Optional[str] = Field(None, max_length=500)
+    environment_type: Optional[EnvironmentType] = None
+    is_active: Optional[str] = None
+
+    @field_validator("base_url")
+    @classmethod
+    def validate_base_url(cls, v):
+        """Validate base URL format."""
+        if v is None:
+            return v
+        if not v.startswith(("http://", "https://")):
+            raise ValueError("Base URL must start with http:// or https://")
+        return v.rstrip("/")
+
+
+class EnvironmentResponse(EnvironmentBase):
+    """Schema for Environment responses."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    is_active: str
+    user_id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+
+class EnvironmentFilters(BaseModel):
+    """Schema for Environment filtering and pagination."""
+
+    name: Optional[str] = None
+    environment_type: Optional[EnvironmentType] = None
+    is_active: Optional[str] = Field(default="true")
+    sort_by: str = Field(default="created_at")
+    sort_order: str = Field(default="desc")
+    page: int = Field(default=1, ge=1)
+    size: int = Field(default=10, ge=1, le=100)
 
     @field_validator("sort_by")
     @classmethod
     def validate_sort_by(cls, v):
         """Validate sort_by field."""
-        allowed_fields = ["name", "version_string", "created_at", "updated_at"]
+        allowed_fields = ["name", "environment_type", "created_at", "updated_at"]
         if v not in allowed_fields:
-            raise ValueError(
-                f"sort_by must be one of: {', '.join(allowed_fields)}"
-            )
+            raise ValueError(f"sort_by must be one of: {allowed_fields}")
         return v
 
     @field_validator("sort_order")
     @classmethod
     def validate_sort_order(cls, v):
         """Validate sort_order field."""
-        if v.lower() not in ["asc", "desc"]:
-            raise ValueError('sort_order must be "asc" or "desc"')
-        return v.lower()
+        if v not in ["asc", "desc"]:
+            raise ValueError("sort_order must be 'asc' or 'desc'")
+        return v
 
 
-class ValidationRunStatus(str, Enum):
-    """Enum for validation run status."""
+class EnvironmentListResponse(BaseModel):
+    """Schema for paginated Environment list response."""
 
-    PENDING = "pending"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
+    items: List[EnvironmentResponse]
+    total: int
+    page: int
+    size: int
+    pages: int
 
 
+# Validation Schemas
 class AuthMethod(str, Enum):
-    """Enum for authentication methods."""
+    """Authentication method enumeration."""
 
     NONE = "none"
     API_KEY = "api_key"
@@ -161,17 +255,31 @@ class AuthMethod(str, Enum):
     OAUTH2 = "oauth2"
 
 
+class ValidationRunStatus(str, Enum):
+    """Validation run status enumeration."""
+
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
 class ValidationRunCreate(BaseModel):
     """Schema for creating a validation run."""
 
     api_specification_id: int = Field(
         ..., description="ID of the API specification to validate against"
     )
-    provider_url: str = Field(
-        ...,
+    # Support both environment selection and custom URL
+    environment_id: Optional[int] = Field(
+        None, description="ID of the predefined environment to validate against"
+    )
+    provider_url: Optional[str] = Field(
+        None,
         min_length=1,
         max_length=2048,
-        description="URL of the provider to validate",
+        description="Custom provider URL (used if environment_id is not provided)",
     )
     auth_method: AuthMethod = Field(
         default=AuthMethod.NONE, description="Authentication method to use"
@@ -183,8 +291,7 @@ class ValidationRunCreate(BaseModel):
     test_strategies: Optional[List[str]] = Field(
         default=None,
         description=(
-            "Specific test strategies to use "
-            "(e.g., 'path_parameters', 'query_parameters')"
+            "Specific test strategies to use (e.g., 'path_parameters', 'query_parameters')"
         ),
     )
     max_examples: Optional[int] = Field(
@@ -204,29 +311,68 @@ class ValidationRunCreate(BaseModel):
     @classmethod
     def validate_provider_url(cls, v):
         """Validate provider URL format."""
+        if v is None:
+            return v
         if not v.startswith(("http://", "https://")):
-            raise ValueError(
-                "Provider URL must start with http:// or https://"
-            )
+            raise ValueError("Provider URL must start with http:// or https://")
         return v
+
+    def model_post_init(self, __context):
+        """Validate that either environment_id or provider_url is provided."""
+        if not self.environment_id and not self.provider_url:
+            raise ValueError("Either environment_id or provider_url must be provided")
+        if self.environment_id and self.provider_url:
+            raise ValueError("Cannot specify both environment_id and provider_url")
 
 
 class ValidationRunResponse(BaseModel):
-    """Schema for validation run response."""
+    """Schema for validation run responses."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     id: int
     api_specification_id: int
     provider_url: str
-    status: ValidationRunStatus
+    environment_id: Optional[int] = None
     auth_method: AuthMethod
+    auth_config: Optional[Dict[str, Any]] = None
     test_strategies: Optional[List[str]] = None
-    max_examples: Optional[int] = None
-    timeout: Optional[int] = None
+    max_examples: int
+    timeout: int
     schemathesis_results: Optional[Dict[str, Any]] = None
+    status: ValidationRunStatus
     triggered_at: datetime
     user_id: int
 
-    model_config = ConfigDict(from_attributes=True)
+
+class ValidationRunFilters(BaseModel):
+    """Schema for validation run filtering and pagination."""
+
+    api_specification_id: Optional[int] = None
+    status: Optional[ValidationRunStatus] = None
+    environment_id: Optional[int] = None
+    provider_url: Optional[str] = None
+    sort_by: str = Field(default="triggered_at")
+    sort_order: str = Field(default="desc")
+    page: int = Field(default=1, ge=1)
+    size: int = Field(default=10, ge=1, le=100)
+
+    @field_validator("sort_by")
+    @classmethod
+    def validate_sort_by(cls, v):
+        """Validate sort_by field."""
+        allowed_fields = ["triggered_at", "status", "provider_url"]
+        if v not in allowed_fields:
+            raise ValueError(f"sort_by must be one of: {allowed_fields}")
+        return v
+
+    @field_validator("sort_order")
+    @classmethod
+    def validate_sort_order(cls, v):
+        """Validate sort_order field."""
+        if v not in ["asc", "desc"]:
+            raise ValueError("sort_order must be 'asc' or 'desc'")
+        return v
 
 
 class ValidationRunListResponse(BaseModel):
@@ -237,46 +383,3 @@ class ValidationRunListResponse(BaseModel):
     page: int
     size: int
     pages: int
-
-
-class ValidationRunFilters(BaseModel):
-    """Schema for validation run filtering and sorting."""
-
-    api_specification_id: Optional[int] = Field(
-        None, description="Filter by API specification ID"
-    )
-    status: Optional[ValidationRunStatus] = Field(
-        None, description="Filter by status"
-    )
-    provider_url: Optional[str] = Field(
-        None, description="Filter by provider URL (partial match)"
-    )
-    user_id: Optional[int] = Field(None, description="Filter by user ID")
-    sort_by: Optional[str] = Field(
-        "triggered_at",
-        description="Sort field (triggered_at, status, provider_url)",
-    )
-    sort_order: Optional[str] = Field(
-        "desc", description="Sort order (asc, desc)"
-    )
-    page: int = Field(1, ge=1, description="Page number")
-    size: int = Field(10, ge=1, le=100, description="Page size")
-
-    @field_validator("sort_by")
-    @classmethod
-    def validate_sort_by(cls, v):
-        """Validate sort_by field."""
-        allowed_fields = ["triggered_at", "status", "provider_url"]
-        if v not in allowed_fields:
-            raise ValueError(
-                f"sort_by must be one of: {', '.join(allowed_fields)}"
-            )
-        return v
-
-    @field_validator("sort_order")
-    @classmethod
-    def validate_sort_order(cls, v):
-        """Validate sort_order field."""
-        if v.lower() not in ["asc", "desc"]:
-            raise ValueError('sort_order must be "asc" or "desc"')
-        return v.lower()

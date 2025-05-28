@@ -5,11 +5,7 @@ from sqlalchemy import and_, desc
 from sqlalchemy.orm import Session
 
 from app.models import APISpecification, User
-from app.schemas import (
-    APISpecificationCreate,
-    APISpecificationFilters,
-    APISpecificationUpdate,
-)
+from app.schemas import APISpecificationCreate, APISpecificationFilters, APISpecificationUpdate
 
 logger = logging.getLogger(__name__)
 
@@ -50,9 +46,7 @@ class APISpecificationService:
         return db_spec
 
     @staticmethod
-    def get_specification(
-        db: Session, spec_id: int, user: User
-    ) -> Optional[APISpecification]:
+    def get_specification(db: Session, spec_id: int, user: User) -> Optional[APISpecification]:
         """
         Get an API specification by ID.
 
@@ -90,24 +84,14 @@ class APISpecificationService:
         Returns:
             Tuple of (specifications list, total count)
         """
-        query = db.query(APISpecification).filter(
-            APISpecification.user_id == user.id
-        )
+        query = db.query(APISpecification).filter(APISpecification.user_id == user.id)
 
         # Apply filters
         if filters.name:
-            query = query.filter(
-                APISpecification.name.ilike(f"%{filters.name}%")
-            )
+            query = query.filter(APISpecification.name.ilike(f"%{filters.name}%"))
 
         if filters.version_string:
-            query = query.filter(
-                APISpecification.version_string == filters.version_string
-            )
-
-        if filters.user_id and filters.user_id == user.id:
-            # Allow filtering by user_id only if it matches current user
-            query = query.filter(APISpecification.user_id == filters.user_id)
+            query = query.filter(APISpecification.version_string == filters.version_string)
 
         # Get total count before pagination
         total = query.count()
@@ -164,9 +148,7 @@ class APISpecificationService:
         db.commit()
         db.refresh(db_spec)
 
-        logger.info(
-            f"Updated API specification {spec_id} for user {user.username}"
-        )
+        logger.info(f"Updated API specification {spec_id} for user {user.username}")
         return db_spec
 
     @staticmethod
@@ -190,9 +172,7 @@ class APISpecificationService:
         db.delete(db_spec)
         db.commit()
 
-        logger.info(
-            f"Deleted API specification {spec_id} for user {user.username}"
-        )
+        logger.info(f"Deleted API specification {spec_id} for user {user.username}")
         return True
 
     @staticmethod

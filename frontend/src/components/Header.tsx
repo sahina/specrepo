@@ -49,7 +49,10 @@ export function Header({ currentView, onNavigate }: HeaderProps) {
                     (item.id === "specifications" &&
                       (currentView === "specification-detail" ||
                         currentView === "specification-view" ||
-                        currentView === "specification-create"))
+                        currentView === "specification-create")) ||
+                    (item.id === "validations" &&
+                      (currentView === "validation-trigger" ||
+                        currentView === "validation-results"))
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   }`}

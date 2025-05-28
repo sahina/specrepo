@@ -4,6 +4,8 @@ import { Header } from "./Header";
 import { Settings } from "./Settings";
 import { SpecificationDetail } from "./SpecificationDetail";
 import { SpecificationsList } from "./SpecificationsList";
+import { ValidationForm } from "./ValidationForm";
+import { ValidationResults } from "./ValidationResults";
 import { ValidationsList } from "./ValidationsList";
 
 type DashboardView =
@@ -14,7 +16,8 @@ type DashboardView =
   | "specification-detail"
   | "specification-view"
   | "specification-create"
-  | "validation-results";
+  | "validation-results"
+  | "validation-trigger";
 
 interface DashboardState {
   view: DashboardView;
@@ -69,13 +72,53 @@ export function Dashboard() {
   };
 
   const handleTriggerValidation = () => {
-    // TODO: Implement validation trigger functionality
-    console.log("Triggering new validation...");
+    setState({ view: "validation-trigger" });
+  };
+
+  const handleValidationTriggered = (validationId: number) => {
+    setState({
+      view: "validation-results",
+      selectedValidationId: validationId,
+    });
+  };
+
+  const handleBackToValidations = () => {
+    setState({ view: "validations" });
   };
 
   const handleNavigate = (view: string) => {
     setState({ view: view as DashboardView });
   };
+
+  // Validation Trigger View
+  if (state.view === "validation-trigger") {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header currentView={state.view} onNavigate={handleNavigate} />
+        <div className="container mx-auto px-4 py-8">
+          <ValidationForm
+            onValidationTriggered={handleValidationTriggered}
+            onCancel={handleBackToValidations}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Validation Results View
+  if (state.view === "validation-results" && state.selectedValidationId) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header currentView={state.view} onNavigate={handleNavigate} />
+        <div className="container mx-auto px-4 py-8">
+          <ValidationResults
+            validationId={state.selectedValidationId}
+            onBack={handleBackToValidations}
+          />
+        </div>
+      </div>
+    );
+  }
 
   // Specification Detail View (Edit)
   if (state.view === "specification-detail" && state.selectedSpecificationId) {

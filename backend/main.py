@@ -10,7 +10,14 @@ from app.db.session import get_db
 from app.dependencies import get_current_user
 from app.middleware import RateLimitMiddleware
 from app.models import User
-from app.routers import api_specifications, mocks, validation_runs, validations, wiremock
+from app.routers import (
+    api_specifications,
+    environments,
+    mocks,
+    validation_runs,
+    validations,
+    wiremock,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -39,6 +46,7 @@ app.add_middleware(RateLimitMiddleware, max_attempts=5, window_seconds=300)
 
 # Include routers
 app.include_router(api_specifications.router)
+app.include_router(environments.router)
 app.include_router(mocks.router)
 app.include_router(validations.router)  # Task 12 endpoints
 app.include_router(validation_runs.router)

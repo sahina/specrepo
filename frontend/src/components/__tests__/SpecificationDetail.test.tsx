@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { SpecificationDetail } from "../SpecificationDetail";
 
 // Mock the Monaco Editor
@@ -70,7 +70,7 @@ describe("SpecificationDetail", () => {
 
   it("renders edit mode when specificationId is provided", async () => {
     // Mock the API response for loading a specification
-    mockApiClient.getSpecification.mockResolvedValue({
+    const mockSpec = {
       id: 1,
       name: "Test API",
       version_string: "1.0.0",
@@ -81,26 +81,29 @@ describe("SpecificationDetail", () => {
       },
       created_at: "2023-01-01T00:00:00Z",
       updated_at: "2023-01-01T00:00:00Z",
-    });
+    };
 
-    await act(async () => {
-      render(
-        <SpecificationDetail
-          specificationId={1}
-          onBack={mockOnBack}
-          onSave={mockOnSave}
-        />,
-      );
-    });
+    mockApiClient.getSpecification.mockResolvedValue(mockSpec);
 
+    render(
+      <SpecificationDetail
+        specificationId={1}
+        onBack={mockOnBack}
+        onSave={mockOnSave}
+      />,
+    );
+
+    // Wait for the async loading to complete and the component to update
     await waitFor(() => {
       expect(screen.getByText("Edit API Specification")).toBeInTheDocument();
     });
+
+    expect(mockApiClient.getSpecification).toHaveBeenCalledWith(1);
   });
 
   it("does not show 'All changes saved' notification immediately when viewing a specification", async () => {
     // Mock the API response for loading a specification
-    mockApiClient.getSpecification.mockResolvedValue({
+    const mockSpec = {
       id: 1,
       name: "Test API",
       version_string: "1.0.0",
@@ -111,18 +114,18 @@ describe("SpecificationDetail", () => {
       },
       created_at: "2023-01-01T00:00:00Z",
       updated_at: "2023-01-01T00:00:00Z",
-    });
+    };
 
-    await act(async () => {
-      render(
-        <SpecificationDetail
-          specificationId={1}
-          onBack={mockOnBack}
-          onSave={mockOnSave}
-          readOnly={true}
-        />,
-      );
-    });
+    mockApiClient.getSpecification.mockResolvedValue(mockSpec);
+
+    render(
+      <SpecificationDetail
+        specificationId={1}
+        onBack={mockOnBack}
+        onSave={mockOnSave}
+        readOnly={true}
+      />,
+    );
 
     // Wait for the component to load
     await waitFor(() => {

@@ -92,7 +92,7 @@ export function MockDeployment({
       const endpoints: MockEndpoint[] = [];
 
       // Debug: Log the stub structure to understand the format
-      console.log("WireMock stubs:", stubs);
+      // console.log("WireMock stubs:", stubs);
 
       stubs.forEach((stub) => {
         const request = stub.request;
