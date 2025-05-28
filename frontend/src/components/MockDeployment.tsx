@@ -83,21 +83,44 @@ export function MockDeployment({
 
   // Extract endpoints from WireMock stubs
   const extractEndpointsFromStubs = useCallback(
-    (stubs: any[]): MockEndpoint[] => {
+    (
+      stubs: Array<{
+        request: Record<string, unknown>;
+        response: Record<string, unknown>;
+      }>,
+    ): MockEndpoint[] => {
       const endpoints: MockEndpoint[] = [];
+
+      // Debug: Log the stub structure to understand the format
+      console.log("WireMock stubs:", stubs);
 
       stubs.forEach((stub) => {
         const request = stub.request;
-        if (request && request.method && request.urlPath) {
+        if (
+          request &&
+          typeof request.method === "string" &&
+          typeof request.urlPattern === "string"
+        ) {
           const method = request.method.toUpperCase();
-          const path = request.urlPath;
-          const url = `${WIREMOCK_BASE_URL}${path}`;
+          // Convert regex pattern back to a readable path
+          let path = request.urlPattern;
 
+          // Replace common regex patterns with OpenAPI-style placeholders
+          path = path.replace(/\(\[0-9\]\+\)/g, "{id}"); // integer path params
+          path = path.replace(/\(\[0-9\]\+\\\.?\[0-9\]\*\)/g, "{number}"); // number path params
+          path = path.replace(/\(\[\^\/\]\+\)/g, "{param}"); // string path params
+
+          const url = `${WIREMOCK_BASE_URL}${path}`;
           endpoints.push({ method, path, url });
-        } else if (request && request.method && request.url) {
-          // Handle different URL patterns
+        } else if (
+          request &&
+          typeof request.method === "string" &&
+          (typeof request.urlPath === "string" ||
+            typeof request.url === "string")
+        ) {
+          // Fallback for other URL formats
           const method = request.method.toUpperCase();
-          const path = request.url;
+          const path = (request.urlPath as string) || (request.url as string);
           const url = `${WIREMOCK_BASE_URL}${path}`;
 
           endpoints.push({ method, path, url });
