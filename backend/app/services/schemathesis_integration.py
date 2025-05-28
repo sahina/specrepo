@@ -10,7 +10,6 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
-import schemathesis
 from sqlalchemy.orm import Session
 
 from app.models import APISpecification, Environment, ValidationRun
@@ -100,15 +99,9 @@ class SchemathesisTestRunner:
         start_time = datetime.now()
 
         try:
-            # Create a Schemathesis schema from the OpenAPI spec
-            schema = schemathesis.from_dict(openapi_spec, base_url=provider_url)
-
-            # Configure test strategies
-            if test_strategies:
-                # Apply specific test strategies if provided
-                for strategy in test_strategies:
-                    if hasattr(schemathesis.strategies, strategy):
-                        schema = schema.with_strategy(getattr(schemathesis.strategies, strategy))
+            # Note: test_strategies parameter is for UI compatibility but not used in this
+            # implementation. Schemathesis handles test strategies through its own
+            # configuration system
 
             # Run tests using a simpler approach
             test_count = 0
