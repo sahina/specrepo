@@ -8,13 +8,20 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useApiClient } from "@/hooks/useApiClient";
-import type { APISpecification, ValidationRunCreate } from "@/services/api";
-import { AuthMethod } from "@/services/api";
+import type {
+  APISpecification,
+  Environment,
+  ValidationRunCreate,
+} from "@/services/api";
+import { AuthMethod, EnvironmentType } from "@/services/api";
 import {
   AlertCircle,
   ChevronDown,
   ChevronUp,
+  Globe,
+  Link,
   Loader2,
   Play,
   Settings,
@@ -27,8 +34,12 @@ interface ValidationFormProps {
   preselectedSpecificationId?: number;
 }
 
+type ProviderSelectionMode = "environment" | "custom";
+
 interface ValidationFormData {
   api_specification_id: number | null;
+  provider_selection_mode: ProviderSelectionMode;
+  environment_id: number | null;
   provider_url: string;
   auth_method: AuthMethod;
   auth_config: Record<string, string>;
@@ -77,6 +88,13 @@ const DEFAULT_TEST_STRATEGIES = [
   "response_validation",
 ];
 
+const ENVIRONMENT_TYPE_LABELS: Record<EnvironmentType, string> = {
+  [EnvironmentType.PRODUCTION]: "Production",
+  [EnvironmentType.STAGING]: "Staging",
+  [EnvironmentType.DEVELOPMENT]: "Development",
+  [EnvironmentType.CUSTOM]: "Custom",
+};
+
 export function ValidationForm({
   onValidationTriggered,
   onCancel,
@@ -84,6 +102,7 @@ export function ValidationForm({
 }: ValidationFormProps) {
   const apiClient = useApiClient();
   const [specifications, setSpecifications] = useState<APISpecification[]>([]);
+  const [environments, setEnvironments] = useState<Environment[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,6 +110,8 @@ export function ValidationForm({
 
   const [formData, setFormData] = useState<ValidationFormData>({
     api_specification_id: preselectedSpecificationId || null,
+    provider_selection_mode: "environment",
+    environment_id: null,
     provider_url: "",
     auth_method: AuthMethod.NONE,
     auth_config: {},
@@ -99,18 +120,24 @@ export function ValidationForm({
     timeout: 300,
   });
 
-  // Load specifications
-  const fetchSpecifications = useCallback(async () => {
+  // Load specifications and environments
+  const fetchData = useCallback(async () => {
     if (!apiClient) return;
 
     try {
       setLoading(true);
       setError(null);
-      const data = await apiClient.getSpecifications({ size: 100 });
-      setSpecifications(data.items);
+
+      const [specificationsData, environmentsData] = await Promise.all([
+        apiClient.getSpecifications({ size: 100 }),
+        apiClient.getEnvironments({ size: 100, is_active: "true" }),
+      ]);
+
+      setSpecifications(specificationsData.items);
+      setEnvironments(environmentsData.items);
     } catch (err) {
       const errorMessage =
-        err instanceof Error ? err.message : "Failed to load specifications";
+        err instanceof Error ? err.message : "Failed to load data";
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -118,12 +145,12 @@ export function ValidationForm({
   }, [apiClient]);
 
   useEffect(() => {
-    fetchSpecifications();
-  }, [fetchSpecifications]);
+    fetchData();
+  }, [fetchData]);
 
   const handleInputChange = (
     field: keyof ValidationFormData,
-    value: string | number | AuthMethod | null,
+    value: string | number | AuthMethod | ProviderSelectionMode | null,
   ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -148,12 +175,20 @@ export function ValidationForm({
     if (!formData.api_specification_id) {
       return "Please select an API specification";
     }
-    if (!formData.provider_url.trim()) {
-      return "Please enter a provider URL";
+
+    if (formData.provider_selection_mode === "environment") {
+      if (!formData.environment_id) {
+        return "Please select an environment";
+      }
+    } else {
+      if (!formData.provider_url.trim()) {
+        return "Please enter a provider URL";
+      }
+      if (!formData.provider_url.match(/^https?:\/\/.+/)) {
+        return "Provider URL must start with http:// or https://";
+      }
     }
-    if (!formData.provider_url.match(/^https?:\/\/.+/)) {
-      return "Provider URL must start with http:// or https://";
-    }
+
     if (
       formData.auth_method === AuthMethod.API_KEY &&
       !formData.auth_config.api_key
@@ -201,7 +236,6 @@ export function ValidationForm({
 
       const validationData: ValidationRunCreate = {
         api_specification_id: formData.api_specification_id!,
-        provider_url: formData.provider_url.trim(),
         auth_method: formData.auth_method,
         auth_config:
           Object.keys(formData.auth_config).length > 0
@@ -215,6 +249,13 @@ export function ValidationForm({
         timeout: formData.timeout,
       };
 
+      // Add either environment_id or provider_url based on selection mode
+      if (formData.provider_selection_mode === "environment") {
+        validationData.environment_id = formData.environment_id!;
+      } else {
+        validationData.provider_url = formData.provider_url;
+      }
+
       const result = await apiClient.triggerValidation(validationData);
       onValidationTriggered?.(result.id);
     } catch (err) {
@@ -226,12 +267,118 @@ export function ValidationForm({
     }
   };
 
+  const renderProviderSelection = () => {
+    return (
+      <div className="space-y-4">
+        <Label className="text-base font-medium">Provider Selection</Label>
+
+        <RadioGroup
+          value={formData.provider_selection_mode}
+          onValueChange={(value: ProviderSelectionMode) =>
+            handleInputChange("provider_selection_mode", value)
+          }
+          className="grid grid-cols-2 gap-4"
+        >
+          <div className="flex items-center space-x-2 rounded-lg border p-4">
+            <RadioGroupItem value="environment" id="environment" />
+            <div className="grid gap-1.5 leading-none">
+              <Label
+                htmlFor="environment"
+                className="flex items-center gap-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                <Globe className="h-4 w-4" />
+                Select Environment
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Choose from predefined environments
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2 rounded-lg border p-4">
+            <RadioGroupItem value="custom" id="custom" />
+            <div className="grid gap-1.5 leading-none">
+              <Label
+                htmlFor="custom"
+                className="flex items-center gap-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                <Link className="h-4 w-4" />
+                Custom URL
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Enter a custom provider URL
+              </p>
+            </div>
+          </div>
+        </RadioGroup>
+
+        {formData.provider_selection_mode === "environment" ? (
+          <div className="space-y-2">
+            <Label htmlFor="environment_id">Environment</Label>
+            <select
+              id="environment_id"
+              value={formData.environment_id || ""}
+              onChange={(e) =>
+                handleInputChange(
+                  "environment_id",
+                  e.target.value ? parseInt(e.target.value) : null,
+                )
+              }
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={loading}
+            >
+              <option value="">Select an environment...</option>
+              {environments.map((env) => (
+                <option key={env.id} value={env.id}>
+                  {env.name} ({ENVIRONMENT_TYPE_LABELS[env.environment_type]}) -{" "}
+                  {env.base_url}
+                </option>
+              ))}
+            </select>
+            {environments.length === 0 && !loading && (
+              <p className="text-sm text-muted-foreground">
+                No environments available. You can create environments in the
+                Settings page.
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <Label htmlFor="provider_url">Provider URL</Label>
+            <Input
+              id="provider_url"
+              type="url"
+              placeholder="https://api.example.com"
+              value={formData.provider_url}
+              onChange={(e) =>
+                handleInputChange("provider_url", e.target.value)
+              }
+              disabled={submitting}
+            />
+            <p className="text-sm text-muted-foreground">
+              The base URL of your API implementation to validate against the
+              specification
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderAuthConfig = () => {
-    switch (formData.auth_method) {
-      case AuthMethod.API_KEY:
-        return (
+    if (formData.auth_method === AuthMethod.NONE) {
+      return null;
+    }
+
+    return (
+      <div className="space-y-4">
+        <Label className="text-base font-medium">
+          Authentication Configuration
+        </Label>
+
+        {formData.auth_method === AuthMethod.API_KEY && (
           <div className="space-y-4">
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="api_key">API Key</Label>
               <Input
                 id="api_key"
@@ -241,43 +388,76 @@ export function ValidationForm({
                 onChange={(e) =>
                   handleAuthConfigChange("api_key", e.target.value)
                 }
+                disabled={submitting}
               />
             </div>
-            <div>
-              <Label htmlFor="api_key_header">Header Name (optional)</Label>
+            <div className="space-y-2">
+              <Label htmlFor="header_name">Header Name (optional)</Label>
               <Input
-                id="api_key_header"
+                id="header_name"
                 placeholder="X-API-Key"
                 value={formData.auth_config.header_name || ""}
                 onChange={(e) =>
                   handleAuthConfigChange("header_name", e.target.value)
                 }
+                disabled={submitting}
               />
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-sm text-muted-foreground">
                 Default: X-API-Key
               </p>
             </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="in_query"
+                checked={formData.auth_config.in_query === "true"}
+                onChange={(e) =>
+                  handleAuthConfigChange(
+                    "in_query",
+                    e.target.checked ? "true" : "false",
+                  )
+                }
+                disabled={submitting}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <Label htmlFor="in_query" className="text-sm">
+                Send API key as query parameter instead of header
+              </Label>
+            </div>
+            {formData.auth_config.in_query === "true" && (
+              <div className="space-y-2">
+                <Label htmlFor="param_name">Parameter Name</Label>
+                <Input
+                  id="param_name"
+                  placeholder="api_key"
+                  value={formData.auth_config.param_name || ""}
+                  onChange={(e) =>
+                    handleAuthConfigChange("param_name", e.target.value)
+                  }
+                  disabled={submitting}
+                />
+              </div>
+            )}
           </div>
-        );
+        )}
 
-      case AuthMethod.BEARER_TOKEN:
-        return (
-          <div>
-            <Label htmlFor="bearer_token">Bearer Token</Label>
+        {formData.auth_method === AuthMethod.BEARER_TOKEN && (
+          <div className="space-y-2">
+            <Label htmlFor="token">Bearer Token</Label>
             <Input
-              id="bearer_token"
+              id="token"
               type="password"
               placeholder="Enter your bearer token"
               value={formData.auth_config.token || ""}
               onChange={(e) => handleAuthConfigChange("token", e.target.value)}
+              disabled={submitting}
             />
           </div>
-        );
+        )}
 
-      case AuthMethod.BASIC_AUTH:
-        return (
-          <div className="space-y-4">
-            <div>
+        {formData.auth_method === AuthMethod.BASIC_AUTH && (
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
               <Label htmlFor="username">Username</Label>
               <Input
                 id="username"
@@ -286,9 +466,10 @@ export function ValidationForm({
                 onChange={(e) =>
                   handleAuthConfigChange("username", e.target.value)
                 }
+                disabled={submitting}
               />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
@@ -298,14 +479,14 @@ export function ValidationForm({
                 onChange={(e) =>
                   handleAuthConfigChange("password", e.target.value)
                 }
+                disabled={submitting}
               />
             </div>
           </div>
-        );
+        )}
 
-      case AuthMethod.OAUTH2:
-        return (
-          <div>
+        {formData.auth_method === AuthMethod.OAUTH2 && (
+          <div className="space-y-2">
             <Label htmlFor="access_token">Access Token</Label>
             <Input
               id="access_token"
@@ -315,23 +496,20 @@ export function ValidationForm({
               onChange={(e) =>
                 handleAuthConfigChange("access_token", e.target.value)
               }
+              disabled={submitting}
             />
           </div>
-        );
-
-      default:
-        return null;
-    }
+        )}
+      </div>
+    );
   };
 
   if (loading) {
     return (
       <Card>
-        <CardContent className="flex items-center justify-center py-8">
-          <div className="flex items-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading specifications...
-          </div>
+        <CardContent className="flex items-center justify-center p-6">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span className="ml-2">Loading...</span>
         </CardContent>
       </Card>
     );
@@ -345,34 +523,33 @@ export function ValidationForm({
           Trigger Validation
         </CardTitle>
         <CardDescription>
-          Run Schemathesis validation against your API provider
+          Validate your API provider implementation against an OpenAPI
+          specification
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
-            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 text-destructive" />
-                <p className="text-destructive text-sm">{error}</p>
-              </div>
+            <div className="flex items-center gap-2 rounded-md bg-destructive/15 p-3 text-sm text-destructive">
+              <AlertCircle className="h-4 w-4" />
+              {error}
             </div>
           )}
 
           {/* API Specification Selection */}
-          <div>
-            <Label htmlFor="specification">API Specification *</Label>
+          <div className="space-y-2">
+            <Label htmlFor="api_specification_id">API Specification</Label>
             <select
-              id="specification"
-              className="w-full mt-1 px-3 py-2 border border-input rounded-md bg-background"
+              id="api_specification_id"
               value={formData.api_specification_id || ""}
               onChange={(e) =>
                 handleInputChange(
                   "api_specification_id",
-                  parseInt(e.target.value) || null,
+                  e.target.value ? parseInt(e.target.value) : null,
                 )
               }
-              required
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={submitting}
             >
               <option value="">Select a specification...</option>
               {specifications.map((spec) => (
@@ -383,34 +560,20 @@ export function ValidationForm({
             </select>
           </div>
 
-          {/* Provider URL */}
-          <div>
-            <Label htmlFor="provider_url">Provider URL *</Label>
-            <Input
-              id="provider_url"
-              type="url"
-              placeholder="https://api.example.com"
-              value={formData.provider_url}
-              onChange={(e) =>
-                handleInputChange("provider_url", e.target.value)
-              }
-              required
-            />
-            <p className="text-sm text-muted-foreground mt-1">
-              The base URL of your API provider to validate against
-            </p>
-          </div>
+          {/* Provider Selection */}
+          {renderProviderSelection()}
 
           {/* Authentication Method */}
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="auth_method">Authentication Method</Label>
             <select
               id="auth_method"
-              className="w-full mt-1 px-3 py-2 border border-input rounded-md bg-background"
               value={formData.auth_method}
               onChange={(e) =>
                 handleInputChange("auth_method", e.target.value as AuthMethod)
               }
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={submitting}
             >
               {AUTH_METHODS.map((method) => (
                 <option key={method.value} value={method.value}>
@@ -421,22 +584,15 @@ export function ValidationForm({
           </div>
 
           {/* Authentication Configuration */}
-          {formData.auth_method !== AuthMethod.NONE && (
-            <div className="space-y-2">
-              <Label>Authentication Configuration</Label>
-              <div className="border rounded-lg p-4 bg-muted/50">
-                {renderAuthConfig()}
-              </div>
-            </div>
-          )}
+          {renderAuthConfig()}
 
           {/* Advanced Settings */}
-          <div>
+          <div className="space-y-4">
             <Button
               type="button"
               variant="ghost"
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="flex items-center gap-2 p-0 h-auto"
+              className="flex items-center gap-2 p-0 h-auto font-medium"
             >
               <Settings className="h-4 w-4" />
               Advanced Settings
@@ -448,30 +604,37 @@ export function ValidationForm({
             </Button>
 
             {showAdvanced && (
-              <div className="mt-4 space-y-4 border rounded-lg p-4 bg-muted/50">
+              <div className="space-y-4 rounded-lg border p-4">
                 {/* Test Strategies */}
-                <div>
-                  <Label>Test Strategies</Label>
-                  <div className="mt-2 space-y-2">
+                <div className="space-y-2">
+                  <Label className="text-base font-medium">
+                    Test Strategies
+                  </Label>
+                  <div className="grid grid-cols-2 gap-2">
                     {DEFAULT_TEST_STRATEGIES.map((strategy) => (
-                      <label key={strategy} className="flex items-center gap-2">
+                      <div
+                        key={strategy}
+                        className="flex items-center space-x-2"
+                      >
                         <input
                           type="checkbox"
+                          id={strategy}
                           checked={formData.test_strategies.includes(strategy)}
                           onChange={() => handleTestStrategyToggle(strategy)}
-                          className="rounded"
+                          disabled={submitting}
+                          className="h-4 w-4 rounded border-gray-300"
                         />
-                        <span className="text-sm">
+                        <Label htmlFor={strategy} className="text-sm">
                           {strategy.replace(/_/g, " ")}
-                        </span>
-                      </label>
+                        </Label>
+                      </div>
                     ))}
                   </div>
                 </div>
 
                 {/* Max Examples */}
-                <div>
-                  <Label htmlFor="max_examples">Max Examples</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="max_examples">Maximum Test Examples</Label>
                   <Input
                     id="max_examples"
                     type="number"
@@ -481,17 +644,18 @@ export function ValidationForm({
                     onChange={(e) =>
                       handleInputChange(
                         "max_examples",
-                        parseInt(e.target.value) || 100,
+                        parseInt(e.target.value),
                       )
                     }
+                    disabled={submitting}
                   />
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Maximum number of test examples to generate (1-1000)
+                  <p className="text-sm text-muted-foreground">
+                    Number of test cases to generate (1-1000)
                   </p>
                 </div>
 
                 {/* Timeout */}
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="timeout">Timeout (seconds)</Label>
                   <Input
                     id="timeout"
@@ -500,31 +664,30 @@ export function ValidationForm({
                     max="3600"
                     value={formData.timeout}
                     onChange={(e) =>
-                      handleInputChange(
-                        "timeout",
-                        parseInt(e.target.value) || 300,
-                      )
+                      handleInputChange("timeout", parseInt(e.target.value))
                     }
+                    disabled={submitting}
                   />
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Validation timeout in seconds (30-3600)
+                  <p className="text-sm text-muted-foreground">
+                    Maximum time to wait for validation completion (30-3600
+                    seconds)
                   </p>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-3 pt-4">
+          {/* Form Actions */}
+          <div className="flex gap-3">
             <Button type="submit" disabled={submitting} className="flex-1">
               {submitting ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Triggering Validation...
                 </>
               ) : (
                 <>
-                  <Play className="h-4 w-4 mr-2" />
+                  <Play className="mr-2 h-4 w-4" />
                   Trigger Validation
                 </>
               )}

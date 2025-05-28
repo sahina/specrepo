@@ -51,9 +51,7 @@ class TestAPISpecificationEndpoints:
                                     "application/json": {
                                         "schema": {
                                             "type": "object",
-                                            "properties": {
-                                                "message": {"type": "string"}
-                                            },
+                                            "properties": {"message": {"type": "string"}},
                                         }
                                     }
                                 },
@@ -96,9 +94,7 @@ class TestAPISpecificationEndpoints:
             "openapi_content": sample_openapi_spec,
         }
 
-        response = client.post(
-            "/api/specifications", json=spec_data, headers=auth_headers
-        )
+        response = client.post("/api/specifications", json=spec_data, headers=auth_headers)
 
         assert response.status_code == 201
         data = response.json()
@@ -125,14 +121,10 @@ class TestAPISpecificationEndpoints:
         spec_data = {
             "name": "Test API",
             "version_string": "v1.0",
-            "openapi_content": {
-                "invalid": "content"
-            },  # Missing required fields
+            "openapi_content": {"invalid": "content"},  # Missing required fields
         }
 
-        response = client.post(
-            "/api/specifications", json=spec_data, headers=auth_headers
-        )
+        response = client.post("/api/specifications", json=spec_data, headers=auth_headers)
 
         assert response.status_code == 422
 
@@ -147,15 +139,11 @@ class TestAPISpecificationEndpoints:
         }
 
         # Create first specification
-        response1 = client.post(
-            "/api/specifications", json=spec_data, headers=auth_headers
-        )
+        response1 = client.post("/api/specifications", json=spec_data, headers=auth_headers)
         assert response1.status_code == 201
 
         # Try to create duplicate
-        response2 = client.post(
-            "/api/specifications", json=spec_data, headers=auth_headers
-        )
+        response2 = client.post("/api/specifications", json=spec_data, headers=auth_headers)
         assert response2.status_code == 409
         assert "already exists" in response2.json()["detail"]
 
@@ -195,9 +183,7 @@ class TestAPISpecificationEndpoints:
         ]
 
         for spec_data in specs_data:
-            client.post(
-                "/api/specifications", json=spec_data, headers=auth_headers
-            )
+            client.post("/api/specifications", json=spec_data, headers=auth_headers)
 
         response = client.get("/api/specifications", headers=auth_headers)
 
@@ -219,14 +205,10 @@ class TestAPISpecificationEndpoints:
                 "version_string": "v1.0",
                 "openapi_content": sample_openapi_spec,
             }
-            client.post(
-                "/api/specifications", json=spec_data, headers=auth_headers
-            )
+            client.post("/api/specifications", json=spec_data, headers=auth_headers)
 
         # Test first page
-        response = client.get(
-            "/api/specifications?page=1&size=2", headers=auth_headers
-        )
+        response = client.get("/api/specifications?page=1&size=2", headers=auth_headers)
         assert response.status_code == 200
         data = response.json()
         assert len(data["items"]) == 2
@@ -236,9 +218,7 @@ class TestAPISpecificationEndpoints:
         assert data["pages"] == 3
 
         # Test second page
-        response = client.get(
-            "/api/specifications?page=2&size=2", headers=auth_headers
-        )
+        response = client.get("/api/specifications?page=2&size=2", headers=auth_headers)
         assert response.status_code == 200
         data = response.json()
         assert len(data["items"]) == 2
@@ -268,23 +248,17 @@ class TestAPISpecificationEndpoints:
         ]
 
         for spec_data in specs_data:
-            client.post(
-                "/api/specifications", json=spec_data, headers=auth_headers
-            )
+            client.post("/api/specifications", json=spec_data, headers=auth_headers)
 
         # Filter by name
-        response = client.get(
-            "/api/specifications?name=User", headers=auth_headers
-        )
+        response = client.get("/api/specifications?name=User", headers=auth_headers)
         assert response.status_code == 200
         data = response.json()
         assert len(data["items"]) == 2
         assert all("User" in item["name"] for item in data["items"])
 
         # Filter by version
-        response = client.get(
-            "/api/specifications?version_string=v2.0", headers=auth_headers
-        )
+        response = client.get("/api/specifications?version_string=v2.0", headers=auth_headers)
         assert response.status_code == 200
         data = response.json()
         assert len(data["items"]) == 1
@@ -314,9 +288,7 @@ class TestAPISpecificationEndpoints:
         ]
 
         for spec_data in specs_data:
-            client.post(
-                "/api/specifications", json=spec_data, headers=auth_headers
-            )
+            client.post("/api/specifications", json=spec_data, headers=auth_headers)
 
         # Sort by name ascending
         response = client.get(
@@ -352,9 +324,7 @@ class TestAPISpecificationEndpoints:
             "version_string": "v1.0",
             "openapi_content": sample_openapi_spec,
         }
-        client.post(
-            "/api/specifications", json=spec_data, headers=auth_headers
-        )
+        client.post("/api/specifications", json=spec_data, headers=auth_headers)
 
         # Create specification for second user
         spec_data = {
@@ -362,9 +332,7 @@ class TestAPISpecificationEndpoints:
             "version_string": "v1.0",
             "openapi_content": sample_openapi_spec,
         }
-        client.post(
-            "/api/specifications", json=spec_data, headers=second_user_headers
-        )
+        client.post("/api/specifications", json=spec_data, headers=second_user_headers)
 
         # First user should only see their specification
         response = client.get("/api/specifications", headers=auth_headers)
@@ -374,9 +342,7 @@ class TestAPISpecificationEndpoints:
         assert data["items"][0]["name"] == "User 1 API"
 
         # Second user should only see their specification
-        response = client.get(
-            "/api/specifications", headers=second_user_headers
-        )
+        response = client.get("/api/specifications", headers=second_user_headers)
         assert response.status_code == 200
         data = response.json()
         assert len(data["items"]) == 1
@@ -392,15 +358,11 @@ class TestAPISpecificationEndpoints:
             "version_string": "v1.0",
             "openapi_content": sample_openapi_spec,
         }
-        create_response = client.post(
-            "/api/specifications", json=spec_data, headers=auth_headers
-        )
+        create_response = client.post("/api/specifications", json=spec_data, headers=auth_headers)
         spec_id = create_response.json()["id"]
 
         # Get specification
-        response = client.get(
-            f"/api/specifications/{spec_id}", headers=auth_headers
-        )
+        response = client.get(f"/api/specifications/{spec_id}", headers=auth_headers)
 
         assert response.status_code == 200
         data = response.json()
@@ -428,15 +390,11 @@ class TestAPISpecificationEndpoints:
             "version_string": "v1.0",
             "openapi_content": sample_openapi_spec,
         }
-        create_response = client.post(
-            "/api/specifications", json=spec_data, headers=auth_headers
-        )
+        create_response = client.post("/api/specifications", json=spec_data, headers=auth_headers)
         spec_id = create_response.json()["id"]
 
         # Second user tries to access first user's specification
-        response = client.get(
-            f"/api/specifications/{spec_id}", headers=second_user_headers
-        )
+        response = client.get(f"/api/specifications/{spec_id}", headers=second_user_headers)
         assert response.status_code == 404
 
     def test_update_specification_success(
@@ -449,9 +407,7 @@ class TestAPISpecificationEndpoints:
             "version_string": "v1.0",
             "openapi_content": sample_openapi_spec,
         }
-        create_response = client.post(
-            "/api/specifications", json=spec_data, headers=auth_headers
-        )
+        create_response = client.post("/api/specifications", json=spec_data, headers=auth_headers)
         spec_id = create_response.json()["id"]
 
         # Update specification
@@ -466,9 +422,7 @@ class TestAPISpecificationEndpoints:
         data = response.json()
         assert data["name"] == "Updated API"
         assert data["version_string"] == "v2.0"
-        assert (
-            data["openapi_content"] == sample_openapi_spec
-        )  # Should remain unchanged
+        assert data["openapi_content"] == sample_openapi_spec  # Should remain unchanged
 
     def test_update_specification_partial(
         self, db_session: Session, auth_headers, sample_openapi_spec
@@ -480,9 +434,7 @@ class TestAPISpecificationEndpoints:
             "version_string": "v1.0",
             "openapi_content": sample_openapi_spec,
         }
-        create_response = client.post(
-            "/api/specifications", json=spec_data, headers=auth_headers
-        )
+        create_response = client.post("/api/specifications", json=spec_data, headers=auth_headers)
         spec_id = create_response.json()["id"]
 
         # Update only name
@@ -501,9 +453,7 @@ class TestAPISpecificationEndpoints:
     def test_update_specification_not_found(self, auth_headers):
         """Test update of non-existent specification."""
         update_data = {"name": "Updated API"}
-        response = client.put(
-            "/api/specifications/999", json=update_data, headers=auth_headers
-        )
+        response = client.put("/api/specifications/999", json=update_data, headers=auth_headers)
         assert response.status_code == 404
 
     def test_update_specification_duplicate_name_version(
@@ -522,12 +472,8 @@ class TestAPISpecificationEndpoints:
             "openapi_content": sample_openapi_spec,
         }
 
-        client.post(
-            "/api/specifications", json=spec1_data, headers=auth_headers
-        )
-        create_response2 = client.post(
-            "/api/specifications", json=spec2_data, headers=auth_headers
-        )
+        client.post("/api/specifications", json=spec1_data, headers=auth_headers)
+        create_response2 = client.post("/api/specifications", json=spec2_data, headers=auth_headers)
 
         spec2_id = create_response2.json()["id"]
 
@@ -554,9 +500,7 @@ class TestAPISpecificationEndpoints:
             "version_string": "v1.0",
             "openapi_content": sample_openapi_spec,
         }
-        create_response = client.post(
-            "/api/specifications", json=spec_data, headers=auth_headers
-        )
+        create_response = client.post("/api/specifications", json=spec_data, headers=auth_headers)
         spec_id = create_response.json()["id"]
 
         # Second user tries to update first user's specification
@@ -578,28 +522,20 @@ class TestAPISpecificationEndpoints:
             "version_string": "v1.0",
             "openapi_content": sample_openapi_spec,
         }
-        create_response = client.post(
-            "/api/specifications", json=spec_data, headers=auth_headers
-        )
+        create_response = client.post("/api/specifications", json=spec_data, headers=auth_headers)
         spec_id = create_response.json()["id"]
 
         # Delete specification
-        response = client.delete(
-            f"/api/specifications/{spec_id}", headers=auth_headers
-        )
+        response = client.delete(f"/api/specifications/{spec_id}", headers=auth_headers)
         assert response.status_code == 204
 
         # Verify it's deleted
-        get_response = client.get(
-            f"/api/specifications/{spec_id}", headers=auth_headers
-        )
+        get_response = client.get(f"/api/specifications/{spec_id}", headers=auth_headers)
         assert get_response.status_code == 404
 
     def test_delete_specification_not_found(self, auth_headers):
         """Test deletion of non-existent specification."""
-        response = client.delete(
-            "/api/specifications/999", headers=auth_headers
-        )
+        response = client.delete("/api/specifications/999", headers=auth_headers)
         assert response.status_code == 404
 
     def test_delete_specification_user_isolation(
@@ -616,21 +552,15 @@ class TestAPISpecificationEndpoints:
             "version_string": "v1.0",
             "openapi_content": sample_openapi_spec,
         }
-        create_response = client.post(
-            "/api/specifications", json=spec_data, headers=auth_headers
-        )
+        create_response = client.post("/api/specifications", json=spec_data, headers=auth_headers)
         spec_id = create_response.json()["id"]
 
         # Second user tries to delete first user's specification
-        response = client.delete(
-            f"/api/specifications/{spec_id}", headers=second_user_headers
-        )
+        response = client.delete(f"/api/specifications/{spec_id}", headers=second_user_headers)
         assert response.status_code == 404
 
         # Verify specification still exists for first user
-        get_response = client.get(
-            f"/api/specifications/{spec_id}", headers=auth_headers
-        )
+        get_response = client.get(f"/api/specifications/{spec_id}", headers=auth_headers)
         assert get_response.status_code == 200
 
     def test_all_endpoints_require_authentication(self, sample_openapi_spec):
@@ -655,9 +585,7 @@ class TestAPISpecificationEndpoints:
         assert response.status_code == 401
 
         # Test update
-        response = client.put(
-            "/api/specifications/1", json={"name": "Updated"}
-        )
+        response = client.put("/api/specifications/1", json={"name": "Updated"})
         assert response.status_code == 401
 
         # Test delete
@@ -667,9 +595,7 @@ class TestAPISpecificationEndpoints:
     def test_invalid_query_parameters(self, auth_headers):
         """Test handling of invalid query parameters."""
         # Invalid sort_by
-        response = client.get(
-            "/api/specifications?sort_by=invalid_field", headers=auth_headers
-        )
+        response = client.get("/api/specifications?sort_by=invalid_field", headers=auth_headers)
         assert response.status_code == 422
 
         # Invalid sort_order
@@ -680,19 +606,13 @@ class TestAPISpecificationEndpoints:
         assert response.status_code == 422
 
         # Invalid page
-        response = client.get(
-            "/api/specifications?page=0", headers=auth_headers
-        )
+        response = client.get("/api/specifications?page=0", headers=auth_headers)
         assert response.status_code == 422
 
         # Invalid size
-        response = client.get(
-            "/api/specifications?size=0", headers=auth_headers
-        )
+        response = client.get("/api/specifications?size=0", headers=auth_headers)
         assert response.status_code == 422
 
         # Size too large
-        response = client.get(
-            "/api/specifications?size=101", headers=auth_headers
-        )
+        response = client.get("/api/specifications?size=101", headers=auth_headers)
         assert response.status_code == 422

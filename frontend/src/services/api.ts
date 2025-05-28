@@ -96,7 +96,8 @@ export interface ValidationRun {
 
 export interface ValidationRunCreate {
   api_specification_id: number;
-  provider_url: string;
+  environment_id?: number;
+  provider_url?: string;
   auth_method?: AuthMethod;
   auth_config?: Record<string, unknown>;
   test_strategies?: string[];
@@ -136,6 +137,98 @@ export interface WireMockGenerateResponse {
 export interface WireMockStatusResponse {
   total_stubs: number;
   stubs: WireMockStub[];
+}
+
+// Environment types
+export enum EnvironmentType {
+  PRODUCTION = "production",
+  STAGING = "staging",
+  DEVELOPMENT = "development",
+  CUSTOM = "custom",
+}
+
+export interface Environment {
+  id: number;
+  name: string;
+  base_url: string;
+  description?: string;
+  environment_type: EnvironmentType;
+  is_active: string;
+  user_id: number;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface EnvironmentCreate {
+  name: string;
+  base_url: string;
+  description?: string;
+  environment_type?: EnvironmentType;
+}
+
+export interface EnvironmentUpdate {
+  name?: string;
+  base_url?: string;
+  description?: string;
+  environment_type?: EnvironmentType;
+  is_active?: string;
+}
+
+export interface EnvironmentFilters {
+  name?: string;
+  environment_type?: EnvironmentType;
+  is_active?: string;
+  sort_by?: "name" | "environment_type" | "created_at" | "updated_at";
+  sort_order?: "asc" | "desc";
+  page?: number;
+  size?: number;
+}
+
+// User types
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface CreateUserRequest {
+  username: string;
+  email: string;
+}
+
+export interface CreateUserResponse {
+  message: string;
+  username: string;
+  api_key: string;
+}
+
+// Mock types
+export interface MockDeployRequest {
+  specification_id: number;
+  clear_existing?: boolean;
+}
+
+export interface MockDeployResponse {
+  message: string;
+  configuration_id: number;
+  stubs_created: number;
+  status: string;
+}
+
+export interface MockStatusResponse {
+  total_configurations: number;
+  active_configurations: number;
+  configurations: Array<{
+    id: number;
+    api_specification_id: number;
+    status: string;
+    deployed_at?: string;
+    stubs_count: number;
+    specification_name?: string;
+    specification_version?: string;
+  }>;
 }
 
 // ============================================================================
@@ -309,6 +402,58 @@ class ApiClient {
   }
 
   // ============================================================================
+  // Environments
+  // ============================================================================
+
+  async createEnvironment(data: EnvironmentCreate): Promise<Environment> {
+    const response: AxiosResponse<Environment> = await this.client.post(
+      "/api/environments",
+      data,
+    );
+    return response.data;
+  }
+
+  async getEnvironments(
+    filters?: EnvironmentFilters,
+  ): Promise<PaginatedResponse<Environment>> {
+    const params = new URLSearchParams();
+
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, value.toString());
+        }
+      });
+    }
+
+    const response: AxiosResponse<PaginatedResponse<Environment>> =
+      await this.client.get(`/api/environments?${params.toString()}`);
+    return response.data;
+  }
+
+  async getEnvironment(id: number): Promise<Environment> {
+    const response: AxiosResponse<Environment> = await this.client.get(
+      `/api/environments/${id}`,
+    );
+    return response.data;
+  }
+
+  async updateEnvironment(
+    id: number,
+    data: EnvironmentUpdate,
+  ): Promise<Environment> {
+    const response: AxiosResponse<Environment> = await this.client.put(
+      `/api/environments/${id}`,
+      data,
+    );
+    return response.data;
+  }
+
+  async deleteEnvironment(id: number): Promise<void> {
+    await this.client.delete(`/api/environments/${id}`);
+  }
+
+  // ============================================================================
   // Validations (Schemathesis)
   // ============================================================================
 
@@ -381,6 +526,46 @@ class ApiClient {
 
   async resetWireMock(): Promise<void> {
     await this.client.post("/api/wiremock/reset");
+  }
+
+  // ============================================================================
+  // User Management
+  // ============================================================================
+
+  async createUser(userData: CreateUserRequest): Promise<CreateUserResponse> {
+    const response: AxiosResponse<CreateUserResponse> = await this.client.post(
+      "/api/users",
+      null,
+      {
+        params: userData,
+      },
+    );
+    return response.data;
+  }
+
+  // ============================================================================
+  // Mock Management
+  // ============================================================================
+
+  async deployMock(data: MockDeployRequest): Promise<MockDeployResponse> {
+    const response: AxiosResponse<MockDeployResponse> = await this.client.post(
+      "/api/mocks/deploy",
+      data,
+    );
+    return response.data;
+  }
+
+  async getMockStatus(): Promise<MockStatusResponse> {
+    const response: AxiosResponse<MockStatusResponse> = await this.client.get(
+      "/api/mocks/status",
+    );
+    return response.data;
+  }
+
+  async clearMocks(): Promise<{ message: string; cleared_stubs: number }> {
+    const response: AxiosResponse<{ message: string; cleared_stubs: number }> =
+      await this.client.delete("/api/mocks/clear");
+    return response.data;
   }
 }
 

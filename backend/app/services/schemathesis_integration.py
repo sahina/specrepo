@@ -13,7 +13,7 @@ import httpx
 import schemathesis
 from sqlalchemy.orm import Session
 
-from app.models import APISpecification, ValidationRun
+from app.models import APISpecification, Environment, ValidationRun
 from app.schemas import AuthMethod, ValidationRunStatus
 from app.services.n8n_notifications import n8n_service
 
@@ -108,9 +108,7 @@ class SchemathesisTestRunner:
                 # Apply specific test strategies if provided
                 for strategy in test_strategies:
                     if hasattr(schemathesis.strategies, strategy):
-                        schema = schema.with_strategy(
-                            getattr(schemathesis.strategies, strategy)
-                        )
+                        schema = schema.with_strategy(getattr(schemathesis.strategies, strategy))
 
             # Run tests using a simpler approach
             test_count = 0
@@ -191,30 +189,43 @@ class SchemathesisTestRunner:
 
         return self.results
 
-    def _analyze_response_simple(
-        self, method: str, path: str, response
-    ) -> Dict[str, Any]:
+    def _analyze_response_simple(self, method: str, path: str, response) -> Dict[str, Any]:
         """Analyze a test response and determine if it passes."""
+        # Handle response time - convert timedelta to seconds if needed
+        response_time = getattr(response, "elapsed", None)
+        if response_time is not None:
+            # Convert timedelta to seconds for JSON serialization
+            if hasattr(response_time, "total_seconds"):
+                response_time = response_time.total_seconds()
+
+        # Initialize issues list
+        issues = []
+
+        # Check for slow responses (over 30 seconds)
+        if response_time and response_time > 30:
+            issues.append(f"Slow response: {response_time}s")
+
+        # Check for server errors
+        if response.status_code >= 500:
+            issues.append(f"Server error: {response.status_code}")
+
         result = {
             "method": method,
             "path": path,
             "status_code": response.status_code,
-            "passed": True,
-            "issues": [],
+            "passed": 200 <= response.status_code < 500,  # Basic success criteria
             "timestamp": datetime.now().isoformat(),
+            "response_time": response_time,
+            "issues": issues,
         }
 
-        # Check for obvious failures
-        if response.status_code >= 500:
-            result["passed"] = False
-            result["issues"].append(f"Server error: {response.status_code}")
-
-        # Check response time (basic performance check)
-        if hasattr(response, "elapsed") and response.elapsed.total_seconds() > 30:
-            result["issues"].append(f"Slow response: {response.elapsed.total_seconds()}s")
-
-        # Additional validation could be added here
-        # (schema validation, business logic checks, etc.)
+        # Add error details for failed tests
+        if not result["passed"]:
+            result["error"] = f"HTTP {response.status_code}"
+            try:
+                result["response_body"] = response.text[:500]  # Limit response size
+            except Exception:
+                result["response_body"] = "Could not read response body"
 
         return result
 
@@ -225,54 +236,106 @@ class SchemathesisTestRunner:
         failed = self.results["failed_tests"]
 
         self.results["summary"] = {
-            "success_rate": (passed / total * 100) if total > 0 else 0,
             "total_tests": total,
             "passed_tests": passed,
             "failed_tests": failed,
-            "error_count": len(self.results["errors"]),
+            "success_rate": (passed / total * 100) if total > 0 else 0,
             "execution_time": self.results["execution_time"],
+            "status": "PASSED" if failed == 0 and total > 0 else "FAILED",
         }
 
 
 class SchemathesisIntegrationService:
-    """Main service for Schemathesis integration."""
+    """Service for integrating with Schemathesis for API validation."""
 
     @staticmethod
     async def create_validation_run(
         db: Session,
         api_specification_id: int,
-        provider_url: str,
         user_id: int,
+        environment_id: Optional[int] = None,
+        provider_url: Optional[str] = None,
         auth_method: AuthMethod = AuthMethod.NONE,
         auth_config: Optional[Dict[str, Any]] = None,
         test_strategies: Optional[List[str]] = None,
         max_examples: int = 100,
         timeout: int = 300,
     ) -> ValidationRun:
-        """Create a new validation run."""
+        """
+        Create a new validation run.
+
+        Args:
+            db: Database session
+            api_specification_id: ID of the API specification
+            user_id: ID of the user triggering the validation
+            environment_id: Optional ID of the predefined environment
+            provider_url: Optional custom provider URL (used if environment_id is None)
+            auth_method: Authentication method
+            auth_config: Authentication configuration
+            test_strategies: Test strategies to use
+            max_examples: Maximum number of test examples
+            timeout: Timeout in seconds
+
+        Returns:
+            Created ValidationRun instance
+        """
+        # Resolve provider URL from environment if environment_id is provided
+        final_provider_url = provider_url
+        if environment_id:
+            environment = (
+                db.query(Environment)
+                .filter(
+                    Environment.id == environment_id,
+                    Environment.user_id == user_id,
+                    Environment.is_active == "true",
+                )
+                .first()
+            )
+
+            if not environment:
+                raise ValueError(
+                    f"Environment with ID {environment_id} not found or not accessible"
+                )
+
+            final_provider_url = environment.base_url
+            logger.info(f"Using environment '{environment.name}' with URL: {final_provider_url}")
+
+        if not final_provider_url:
+            raise ValueError("Either environment_id or provider_url must be provided")
+
         validation_run = ValidationRun(
             api_specification_id=api_specification_id,
-            provider_url=provider_url,
-            user_id=user_id,
+            provider_url=final_provider_url,
+            environment_id=environment_id,
             auth_method=auth_method.value,
             auth_config=auth_config,
             test_strategies=test_strategies,
             max_examples=max_examples,
             timeout=timeout,
             status=ValidationRunStatus.PENDING.value,
+            user_id=user_id,
         )
 
         db.add(validation_run)
         db.commit()
         db.refresh(validation_run)
 
+        logger.info(f"Created validation run {validation_run.id}")
         return validation_run
 
     @staticmethod
-    async def execute_validation_run(
-        db: Session, validation_run_id: int
-    ) -> ValidationRun:
-        """Execute a validation run asynchronously."""
+    async def execute_validation_run(db: Session, validation_run_id: int) -> ValidationRun:
+        """
+        Execute a validation run.
+
+        Args:
+            db: Database session
+            validation_run_id: ID of the validation run to execute
+
+        Returns:
+            Updated ValidationRun instance
+        """
+        # Get the validation run
         validation_run = (
             db.query(ValidationRun).filter(ValidationRun.id == validation_run_id).first()
         )
@@ -280,11 +343,15 @@ class SchemathesisIntegrationService:
         if not validation_run:
             raise ValueError(f"Validation run {validation_run_id} not found")
 
-        # Update status to running
-        validation_run.status = ValidationRunStatus.RUNNING.value
-        db.commit()
+        if validation_run.status != ValidationRunStatus.PENDING.value:
+            logger.warning(f"Validation run {validation_run_id} is not in pending status")
+            return validation_run
 
         try:
+            # Update status to running
+            validation_run.status = ValidationRunStatus.RUNNING.value
+            db.commit()
+
             # Get the API specification
             api_spec = (
                 db.query(APISpecification)
@@ -293,7 +360,9 @@ class SchemathesisIntegrationService:
             )
 
             if not api_spec:
-                raise ValueError("API specification not found")
+                raise ValueError(
+                    f"API specification {validation_run.api_specification_id} not found"
+                )
 
             # Prepare authentication
             auth_method = AuthMethod(validation_run.auth_method)
@@ -305,8 +374,8 @@ class SchemathesisIntegrationService:
             )
 
             # Run the tests
-            test_runner = SchemathesisTestRunner(timeout=validation_run.timeout)
-            results = await test_runner.run_tests(
+            runner = SchemathesisTestRunner(timeout=validation_run.timeout)
+            results = await runner.run_tests(
                 openapi_spec=api_spec.openapi_content,
                 provider_url=validation_run.provider_url,
                 auth_headers=auth_headers,
@@ -319,34 +388,23 @@ class SchemathesisIntegrationService:
             validation_run.schemathesis_results = results
             validation_run.status = ValidationRunStatus.COMPLETED.value
 
-            # Send n8n notification for successful completion
-            try:
-                await n8n_service.send_validation_completed(validation_run, api_spec)
-            except Exception as notification_error:
-                logger.warning(
-                    f"Failed to send n8n notification for completed validation "
-                    f"{validation_run_id}: {notification_error}"
-                )
+            # Send n8n notification
+            await n8n_service.send_validation_completed(validation_run, results)
 
         except Exception as e:
             logger.error(f"Error executing validation run {validation_run_id}: {e}")
+            validation_run.status = ValidationRunStatus.FAILED.value
             validation_run.schemathesis_results = {
                 "error": str(e),
                 "timestamp": datetime.now().isoformat(),
             }
-            validation_run.status = ValidationRunStatus.FAILED.value
 
             # Send n8n notification for failure
-            try:
-                await n8n_service.send_validation_failed(validation_run, api_spec)
-            except Exception as notification_error:
-                logger.warning(
-                    f"Failed to send n8n notification for failed validation "
-                    f"{validation_run_id}: {notification_error}"
-                )
+            await n8n_service.send_validation_failed(validation_run, str(e))
 
-        db.commit()
-        db.refresh(validation_run)
+        finally:
+            db.commit()
+            db.refresh(validation_run)
 
         return validation_run
 
@@ -359,19 +417,19 @@ class SchemathesisIntegrationService:
         skip: int = 0,
         limit: int = 100,
     ) -> Tuple[List[ValidationRun], int]:
-        """Get validation runs with filtering and pagination."""
+        """Get validation runs with filtering."""
         query = db.query(ValidationRun).filter(ValidationRun.user_id == user_id)
 
         if api_specification_id:
-            query = query.filter(
-                ValidationRun.api_specification_id == api_specification_id
-            )
+            query = query.filter(ValidationRun.api_specification_id == api_specification_id)
 
         if status:
             query = query.filter(ValidationRun.status == status.value)
 
         total = query.count()
-        validation_runs = query.offset(skip).limit(limit).all()
+        validation_runs = (
+            query.order_by(ValidationRun.triggered_at.desc()).offset(skip).limit(limit).all()
+        )
 
         return validation_runs, total
 
@@ -393,59 +451,61 @@ class SchemathesisIntegrationService:
     async def cancel_validation_run(
         db: Session, validation_run_id: int, user_id: int
     ) -> Optional[ValidationRun]:
-        """Cancel a running validation run."""
+        """Cancel a running validation."""
         validation_run = (
             db.query(ValidationRun)
             .filter(
                 ValidationRun.id == validation_run_id,
                 ValidationRun.user_id == user_id,
-                ValidationRun.status.in_(
-                    [
-                        ValidationRunStatus.PENDING.value,
-                        ValidationRunStatus.RUNNING.value,
-                    ]
-                ),
             )
             .first()
         )
 
-        if validation_run:
+        if not validation_run:
+            return None
+
+        if validation_run.status in [
+            ValidationRunStatus.PENDING.value,
+            ValidationRunStatus.RUNNING.value,
+        ]:
             validation_run.status = ValidationRunStatus.CANCELLED.value
+            validation_run.schemathesis_results = {
+                "cancelled": True,
+                "timestamp": datetime.now().isoformat(),
+                "message": "Validation run was cancelled by user",
+            }
             db.commit()
             db.refresh(validation_run)
 
-            # Send n8n notification for cancellation
-            try:
-                api_spec = (
-                    db.query(APISpecification)
-                    .filter(APISpecification.id == validation_run.api_specification_id)
-                    .first()
-                )
-                if api_spec:
-                    await n8n_service.send_validation_failed(validation_run, api_spec)
-            except Exception as notification_error:
-                logger.warning(
-                    f"Failed to send n8n notification for cancelled validation "
-                    f"{validation_run.id}: {notification_error}"
-                )
-
-        return validation_run
+            logger.info(f"Cancelled validation run {validation_run_id}")
+            return validation_run
+        else:
+            # Cannot cancel validation runs that are not pending or running
+            return None
 
     @staticmethod
     async def validate_provider_connectivity(
         provider_url: str,
     ) -> Dict[str, Any]:
-        """Test basic connectivity to a provider URL."""
+        """
+        Test if the provider URL is reachable.
+
+        Args:
+            provider_url: URL to test
+
+        Returns:
+            Dictionary with connectivity results
+        """
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.get(provider_url)
                 return {
                     "reachable": True,
                     "status_code": response.status_code,
-                    "response_time": response.elapsed.total_seconds(),
+                    "response_time": response.elapsed.total_seconds()
+                    if hasattr(response, "elapsed")
+                    else None,
                 }
         except Exception as e:
-            return {
-                "reachable": False,
-                "error": str(e),
-            }
+            logger.warning(f"Provider connectivity test failed for {provider_url}: {e}")
+            return {"reachable": False, "error": str(e)}

@@ -22,6 +22,7 @@ from app.schemas import (
     ValidationRunResponse,
     ValidationRunStatus,
 )
+from app.services.environments import EnvironmentService
 from app.services.schemathesis_integration import SchemathesisIntegrationService
 
 logger = logging.getLogger(__name__)
@@ -30,13 +31,10 @@ router = APIRouter(prefix="/api/validations", tags=["Validations"])
 
 
 def get_filters(
-    api_specification_id: Optional[int] = Query(
-        None, description="Filter by API specification ID"
-    ),
+    api_specification_id: Optional[int] = Query(None, description="Filter by API specification ID"),
     status: Optional[ValidationRunStatus] = Query(None, description="Filter by status"),
-    provider_url: Optional[str] = Query(
-        None, description="Filter by provider URL (partial match)"
-    ),
+    environment_id: Optional[int] = Query(None, description="Filter by environment ID"),
+    provider_url: Optional[str] = Query(None, description="Filter by provider URL (partial match)"),
     sort_by: str = Query(
         "triggered_at",
         description="Sort field (triggered_at, status, provider_url)",
@@ -50,6 +48,7 @@ def get_filters(
         return ValidationRunFilters(
             api_specification_id=api_specification_id,
             status=status,
+            environment_id=environment_id,
             provider_url=provider_url,
             sort_by=sort_by,
             sort_order=sort_order,
@@ -76,7 +75,8 @@ async def execute_validation_in_background(db: Session, validation_run_id: int):
     summary="Trigger Validation",
     description=(
         "Trigger validation of provider against specification. "
-        "Creates a new validation run and executes it in the background."
+        "Creates a new validation run and executes it in the background. "
+        "You can either select a predefined environment or provide a custom provider URL."
     ),
 )
 async def trigger_validation(
@@ -89,7 +89,9 @@ async def trigger_validation(
     Trigger validation of provider against specification.
 
     - **api_specification_id**: ID of the API specification to validate against
-    - **provider_url**: URL of the provider to validate
+    - **environment_id**: ID of predefined environment (optional, mutually exclusive with
+      provider_url)
+    - **provider_url**: Custom provider URL (optional, mutually exclusive with environment_id)
     - **auth_method**: Authentication method to use
     - **auth_config**: Authentication configuration
     - **test_strategies**: Specific test strategies to use
@@ -97,11 +99,23 @@ async def trigger_validation(
     - **timeout**: Timeout for the validation run in seconds
     """
     try:
+        # Determine the provider URL to test connectivity
+        test_url = validation_data.provider_url
+        if validation_data.environment_id:
+            # Get environment to resolve URL
+            environment = EnvironmentService.get_environment(
+                db, validation_data.environment_id, current_user
+            )
+            if not environment:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Environment with ID {validation_data.environment_id} not found",
+                )
+            test_url = environment.base_url
+
         # Test provider connectivity first
         service = SchemathesisIntegrationService
-        connectivity_result = await service.validate_provider_connectivity(
-            validation_data.provider_url
-        )
+        connectivity_result = await service.validate_provider_connectivity(test_url)
 
         if not connectivity_result.get("reachable"):
             raise HTTPException(
@@ -116,8 +130,9 @@ async def trigger_validation(
         validation_run = await SchemathesisIntegrationService.create_validation_run(
             db=db,
             api_specification_id=validation_data.api_specification_id,
-            provider_url=validation_data.provider_url,
             user_id=current_user.id,
+            environment_id=validation_data.environment_id,
+            provider_url=validation_data.provider_url,
             auth_method=validation_data.auth_method,
             auth_config=validation_data.auth_config,
             test_strategies=validation_data.test_strategies,
@@ -128,9 +143,7 @@ async def trigger_validation(
         # Execute validation in background
         background_tasks.add_task(execute_validation_in_background, db, validation_run.id)
 
-        logger.info(
-            f"Triggered validation run {validation_run.id} for user {current_user.id}"
-        )
+        logger.info(f"Triggered validation run {validation_run.id} for user {current_user.id}")
 
         return ValidationRunResponse.model_validate(validation_run)
 
@@ -200,6 +213,7 @@ async def list_validations(
     Supports filtering by:
     - **api_specification_id**: Filter by API specification ID
     - **status**: Filter by validation run status
+    - **environment_id**: Filter by environment ID
     - **provider_url**: Partial provider URL match
 
     Supports sorting by:
