@@ -25,6 +25,7 @@ import type {
 import {
   AlertCircle,
   CheckCircle,
+  Copy,
   ExternalLink,
   Loader2,
   Play,
@@ -46,6 +47,12 @@ interface DeploymentStatus {
   error?: string;
 }
 
+interface MockEndpoint {
+  method: string;
+  path: string;
+  url: string;
+}
+
 const WIREMOCK_BASE_URL = "http://localhost:8081";
 
 export function MockDeployment({
@@ -64,6 +71,7 @@ export function MockDeployment({
   const [showDeployDialog, setShowDeployDialog] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
+  const [mockEndpoints, setMockEndpoints] = useState<MockEndpoint[]>([]);
   const [deploymentHistory, setDeploymentHistory] = useState<
     Array<{
       timestamp: string;
@@ -72,6 +80,43 @@ export function MockDeployment({
       error?: string;
     }>
   >([]);
+
+  // Extract endpoints from WireMock stubs
+  const extractEndpointsFromStubs = useCallback(
+    (stubs: any[]): MockEndpoint[] => {
+      const endpoints: MockEndpoint[] = [];
+
+      stubs.forEach((stub) => {
+        const request = stub.request;
+        if (request && request.method && request.urlPath) {
+          const method = request.method.toUpperCase();
+          const path = request.urlPath;
+          const url = `${WIREMOCK_BASE_URL}${path}`;
+
+          endpoints.push({ method, path, url });
+        } else if (request && request.method && request.url) {
+          // Handle different URL patterns
+          const method = request.method.toUpperCase();
+          const path = request.url;
+          const url = `${WIREMOCK_BASE_URL}${path}`;
+
+          endpoints.push({ method, path, url });
+        }
+      });
+
+      // Remove duplicates and sort by path
+      const uniqueEndpoints = endpoints.filter(
+        (endpoint, index, self) =>
+          index ===
+          self.findIndex(
+            (e) => e.method === endpoint.method && e.path === endpoint.path,
+          ),
+      );
+
+      return uniqueEndpoints.sort((a, b) => a.path.localeCompare(b.path));
+    },
+    [],
+  );
 
   // Load current mock status
   const loadMockStatus = useCallback(async () => {
@@ -83,6 +128,11 @@ export function MockDeployment({
     try {
       const response: WireMockStatusResponse =
         await apiClient.getWireMockStubs();
+
+      // Extract endpoints from stubs
+      const endpoints = extractEndpointsFromStubs(response.stubs);
+      setMockEndpoints(endpoints);
+
       setStatus({
         isDeployed: response.total_stubs > 0,
         stubCount: response.total_stubs,
@@ -93,6 +143,7 @@ export function MockDeployment({
       const errorMessage =
         err instanceof Error ? err.message : "Failed to load mock status";
       setError(errorMessage);
+      setMockEndpoints([]);
       setStatus({
         isDeployed: false,
         stubCount: 0,
@@ -121,6 +172,10 @@ export function MockDeployment({
           specification_id: specificationId,
           clear_existing: clearExisting,
         });
+
+      // Extract endpoints from created stubs
+      const endpoints = extractEndpointsFromStubs(response.stubs);
+      setMockEndpoints(endpoints);
 
       // Update status
       setStatus({
@@ -170,7 +225,8 @@ export function MockDeployment({
     try {
       await apiClient.resetWireMock();
 
-      // Update status
+      // Clear endpoints and update status
+      setMockEndpoints([]);
       setStatus({
         isDeployed: false,
         stubCount: 0,
@@ -250,12 +306,19 @@ export function MockDeployment({
       {/* Mock URLs */}
       {status.isDeployed && (
         <div className="bg-muted/50 rounded-lg p-4 mb-4">
-          <h4 className="text-sm font-medium mb-2">Mock API URLs</h4>
-          <div className="space-y-2">
+          <h4 className="text-sm font-medium mb-3">Mock API URLs</h4>
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Base URL:</span>
+              <div className="flex flex-col">
+                <span className="text-sm text-muted-foreground">
+                  Mock API Base:
+                </span>
+                <span className="text-xs text-muted-foreground/70">
+                  Call your endpoints here
+                </span>
+              </div>
               <div className="flex items-center gap-2">
-                <code className="text-xs bg-background px-2 py-1 rounded">
+                <code className="text-xs bg-background px-2 py-1 rounded font-mono">
                   {WIREMOCK_BASE_URL}
                 </code>
                 <Button
@@ -263,15 +326,23 @@ export function MockDeployment({
                   size="sm"
                   onClick={openMockAPI}
                   className="h-6 w-6 p-0"
+                  title="Open Mock API Base URL"
                 >
                   <ExternalLink className="h-3 w-3" />
                 </Button>
               </div>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Admin UI:</span>
+              <div className="flex flex-col">
+                <span className="text-sm text-muted-foreground">
+                  Admin Interface:
+                </span>
+                <span className="text-xs text-muted-foreground/70">
+                  Manage stubs & logs
+                </span>
+              </div>
               <div className="flex items-center gap-2">
-                <code className="text-xs bg-background px-2 py-1 rounded">
+                <code className="text-xs bg-background px-2 py-1 rounded font-mono">
                   {WIREMOCK_BASE_URL}/__admin/
                 </code>
                 <Button
@@ -279,11 +350,69 @@ export function MockDeployment({
                   size="sm"
                   onClick={openWireMockAdmin}
                   className="h-6 w-6 p-0"
+                  title="Open WireMock Admin Interface"
                 >
                   <ExternalLink className="h-3 w-3" />
                 </Button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mock Endpoints */}
+      {status.isDeployed && mockEndpoints.length > 0 && (
+        <div className="bg-muted/50 rounded-lg p-4 mb-4">
+          <h4 className="text-sm font-medium mb-3">Available Endpoints</h4>
+          <div className="space-y-2">
+            {mockEndpoints.map((endpoint, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between p-2 bg-background rounded border"
+              >
+                <div className="flex items-center gap-3">
+                  <Badge
+                    variant={
+                      endpoint.method === "GET"
+                        ? "default"
+                        : endpoint.method === "POST"
+                        ? "secondary"
+                        : endpoint.method === "PUT"
+                        ? "outline"
+                        : endpoint.method === "DELETE"
+                        ? "destructive"
+                        : "secondary"
+                    }
+                    className="font-mono text-xs min-w-[60px] justify-center"
+                  >
+                    {endpoint.method}
+                  </Badge>
+                  <code className="text-sm font-mono text-muted-foreground">
+                    {endpoint.path}
+                  </code>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => window.open(endpoint.url, "_blank")}
+                    className="h-6 w-6 p-0"
+                    title={`Open ${endpoint.method} ${endpoint.path}`}
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigator.clipboard.writeText(endpoint.url)}
+                    className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                    title="Copy URL to clipboard"
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -476,12 +605,78 @@ export function MockDeployment({
               </div>
             )}
 
+            {/* Available Endpoints */}
+            {mockEndpoints.length > 0 && (
+              <div>
+                <h4 className="font-medium mb-2">Available Endpoints</h4>
+                <div className="space-y-2 text-sm max-h-48 overflow-y-auto">
+                  {mockEndpoints.map((endpoint, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-2 bg-muted/30 rounded"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant={
+                            endpoint.method === "GET"
+                              ? "default"
+                              : endpoint.method === "POST"
+                              ? "secondary"
+                              : endpoint.method === "PUT"
+                              ? "outline"
+                              : endpoint.method === "DELETE"
+                              ? "destructive"
+                              : "secondary"
+                          }
+                          className="font-mono text-xs min-w-[50px] justify-center"
+                        >
+                          {endpoint.method}
+                        </Badge>
+                        <code className="text-xs font-mono">
+                          {endpoint.path}
+                        </code>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => window.open(endpoint.url, "_blank")}
+                          className="h-5 w-5 p-0"
+                          title={`Open ${endpoint.method} ${endpoint.path}`}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            navigator.clipboard.writeText(endpoint.url)
+                          }
+                          className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
+                          title="Copy URL"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* WireMock URLs */}
             <div>
               <h4 className="font-medium mb-2">WireMock URLs</h4>
-              <div className="space-y-2 text-sm">
+              <div className="space-y-3 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Mock API:</span>
+                  <div className="flex flex-col">
+                    <span className="text-muted-foreground">
+                      Mock API Base:
+                    </span>
+                    <span className="text-xs text-muted-foreground/70">
+                      Use this URL to call your mock endpoints
+                    </span>
+                  </div>
                   <div className="flex items-center gap-2">
                     <code className="text-xs bg-background px-2 py-1 rounded">
                       {WIREMOCK_BASE_URL}
@@ -491,15 +686,21 @@ export function MockDeployment({
                       size="sm"
                       onClick={openMockAPI}
                       className="h-6 w-6 p-0"
+                      title="Open Mock API Base URL"
                     >
                       <ExternalLink className="h-3 w-3" />
                     </Button>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">
-                    Admin Interface:
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="text-muted-foreground">
+                      Admin Interface:
+                    </span>
+                    <span className="text-xs text-muted-foreground/70">
+                      Manage stubs and view request logs
+                    </span>
+                  </div>
                   <div className="flex items-center gap-2">
                     <code className="text-xs bg-background px-2 py-1 rounded">
                       {WIREMOCK_BASE_URL}/__admin/
@@ -509,6 +710,7 @@ export function MockDeployment({
                       size="sm"
                       onClick={openWireMockAdmin}
                       className="h-6 w-6 p-0"
+                      title="Open WireMock Admin Interface"
                     >
                       <ExternalLink className="h-3 w-3" />
                     </Button>
