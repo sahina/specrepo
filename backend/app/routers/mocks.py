@@ -55,8 +55,7 @@ class MockResetResponse(BaseModel):
     status_code=status.HTTP_201_CREATED,
     summary="Deploy API Specification to WireMock",
     description=(
-        "Deploy an API specification to WireMock and store deployment status "
-        "in database."
+        "Deploy an API specification to WireMock and store deployment status in database."
     ),
 )
 async def deploy_mock(
@@ -80,10 +79,7 @@ async def deploy_mock(
         if not specification:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=(
-                    f"API specification with ID {request.specification_id} "
-                    "not found"
-                ),
+                detail=(f"API specification with ID {request.specification_id} not found"),
             )
 
         # Initialize WireMock service
@@ -94,6 +90,8 @@ async def deploy_mock(
             created_stubs = await wiremock_service.generate_stubs_from_openapi(
                 specification.openapi_content,
                 clear_existing=request.clear_existing,
+                specification_id=specification.id,
+                specification_name=specification.name,
             )
         except Exception as e:
             logger.error(f"Failed to deploy to WireMock: {str(e)}")
@@ -161,9 +159,7 @@ async def deploy_mock(
     "/reset",
     response_model=MockResetResponse,
     summary="Reset All WireMock Configurations",
-    description=(
-        "Reset all WireMock configurations and update database status."
-    ),
+    description=("Reset all WireMock configurations and update database status."),
 )
 async def reset_mocks(
     db: Session = Depends(get_db),
@@ -193,15 +189,11 @@ async def reset_mocks(
 
         # Reset all mock configurations in database
         try:
-            configurations_reset = (
-                MockConfigurationService.reset_all_mock_configurations(
-                    db=db, user=current_user
-                )
+            configurations_reset = MockConfigurationService.reset_all_mock_configurations(
+                db=db, user=current_user
             )
         except Exception as e:
-            logger.error(
-                f"Failed to reset mock configurations in database: {str(e)}"
-            )
+            logger.error(f"Failed to reset mock configurations in database: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to reset database configurations: {str(e)}",
@@ -211,16 +203,10 @@ async def reset_mocks(
         if not wiremock_reset_success:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=(
-                    "Database configurations reset successfully, but WireMock "
-                    "reset failed"
-                ),
+                detail=("Database configurations reset successfully, but WireMock reset failed"),
             )
 
-        logger.info(
-            f"Successfully reset {configurations_reset} mock configurations "
-            "and WireMock"
-        )
+        logger.info(f"Successfully reset {configurations_reset} mock configurations and WireMock")
 
         return MockResetResponse(
             message="Successfully reset all mock configurations",
@@ -256,17 +242,13 @@ async def get_mock_status(
     """
     try:
         # Get all mock configurations
-        all_configurations = (
-            MockConfigurationService.get_active_mock_configurations(
-                db=db, user=current_user
-            )
+        all_configurations = MockConfigurationService.get_active_mock_configurations(
+            db=db, user=current_user
         )
 
         # Get active configurations
         active_configurations = [
-            config
-            for config in all_configurations
-            if config.status == "active"
+            config for config in all_configurations if config.status == "active"
         ]
 
         # Build response data
@@ -276,18 +258,10 @@ async def get_mock_status(
                 "id": config.id,
                 "api_specification_id": config.api_specification_id,
                 "status": config.status,
-                "deployed_at": config.deployed_at.isoformat()
-                if config.deployed_at
-                else None,
-                "stubs_count": len(
-                    config.wiremock_mapping_json.get("stubs", [])
-                ),
-                "specification_name": config.wiremock_mapping_json.get(
-                    "specification_name"
-                ),
-                "specification_version": config.wiremock_mapping_json.get(
-                    "specification_version"
-                ),
+                "deployed_at": config.deployed_at.isoformat() if config.deployed_at else None,
+                "stubs_count": len(config.wiremock_mapping_json.get("stubs", [])),
+                "specification_name": config.wiremock_mapping_json.get("specification_name"),
+                "specification_version": config.wiremock_mapping_json.get("specification_version"),
             }
             configurations_data.append(config_data)
 

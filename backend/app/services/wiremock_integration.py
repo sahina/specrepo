@@ -162,13 +162,20 @@ class WireMockStubGenerator:
     """Generates WireMock stub configurations from OpenAPI endpoints."""
 
     @staticmethod
-    def generate_stub(endpoint: OpenAPIEndpoint, base_url: str = "") -> WireMockStub:
+    def generate_stub(
+        endpoint: OpenAPIEndpoint,
+        base_url: str = "",
+        specification_id: Optional[int] = None,
+        specification_name: Optional[str] = None,
+    ) -> WireMockStub:
         """
         Generate WireMock stub from OpenAPI endpoint.
 
         Args:
             endpoint: OpenAPI endpoint definition
             base_url: Base URL for the API (optional)
+            specification_id: ID of the API specification (for metadata)
+            specification_name: Name of the API specification (for metadata)
 
         Returns:
             WireMockStub configuration
@@ -205,6 +212,8 @@ class WireMockStubGenerator:
             "operationId": endpoint.operation_id,
             "summary": endpoint.summary,
             "tags": endpoint.tags,
+            "specificationId": specification_id,
+            "specificationName": specification_name,
         }
 
         return WireMockStub(request=request_config, response=response_config, metadata=metadata)
@@ -475,6 +484,8 @@ class WireMockIntegrationService:
         self,
         openapi_content: Union[str, Dict[str, Any]],
         clear_existing: bool = False,
+        specification_id: Optional[int] = None,
+        specification_name: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
         Generate and create WireMock stubs from OpenAPI specification.
@@ -482,6 +493,8 @@ class WireMockIntegrationService:
         Args:
             openapi_content: OpenAPI specification content
             clear_existing: Whether to clear existing stubs first
+            specification_id: ID of the API specification (for metadata)
+            specification_name: Name of the API specification (for metadata)
 
         Returns:
             List of created stub responses
@@ -499,14 +512,26 @@ class WireMockIntegrationService:
 
             # Clear existing stubs if requested
             if clear_existing:
-                await self.client.clear_stubs()
-                logger.info("Cleared existing WireMock stubs")
+                if specification_id is not None:
+                    # Clear only stubs belonging to this specification
+                    await self.clear_stubs_by_specification(specification_id)
+                    logger.info(
+                        f"Cleared existing WireMock stubs for specification {specification_id}"
+                    )
+                else:
+                    # Clear all stubs (legacy behavior)
+                    await self.client.clear_stubs()
+                    logger.info("Cleared all existing WireMock stubs")
 
             # Generate and create stubs
             created_stubs = []
             for endpoint in endpoints:
                 try:
-                    stub = self.stub_generator.generate_stub(endpoint)
+                    stub = self.stub_generator.generate_stub(
+                        endpoint,
+                        specification_id=specification_id,
+                        specification_name=specification_name,
+                    )
                     result = await self.client.create_stub(stub)
                     created_stubs.append(result)
 
@@ -546,6 +571,46 @@ class WireMockIntegrationService:
         result = await self.client.clear_stubs()
         logger.info("Cleared all WireMock stubs")
         return result
+
+    async def clear_stubs_by_specification(self, specification_id: int) -> bool:
+        """
+        Clear WireMock stubs belonging to a specific API specification.
+
+        Args:
+            specification_id: ID of the API specification
+
+        Returns:
+            True if successful
+        """
+        try:
+            # Get all current stubs
+            all_stubs = await self.client.get_stubs()
+
+            # Find stubs belonging to this specification
+            stubs_to_delete = []
+            for stub in all_stubs:
+                metadata = stub.get("metadata", {})
+                if metadata.get("specificationId") == specification_id:
+                    stubs_to_delete.append(stub.get("id"))
+
+            # Delete each stub
+            deleted_count = 0
+            for stub_id in stubs_to_delete:
+                if stub_id:
+                    try:
+                        await self.client.delete_stub(stub_id)
+                        deleted_count += 1
+                    except Exception as e:
+                        logger.warning(f"Failed to delete stub {stub_id}: {e}")
+
+            logger.info(
+                f"Cleared {deleted_count} WireMock stubs for specification {specification_id}"
+            )
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to clear stubs for specification {specification_id}: {e}")
+            return False
 
     async def reset_wiremock(self) -> bool:
         """
