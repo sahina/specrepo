@@ -25,13 +25,23 @@ import type {
   APISpecificationUpdate,
 } from "@/services/api";
 import Editor from "@monaco-editor/react";
-import { AlertCircle, ArrowLeft, Check, Loader2, Save, X } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  Check,
+  Edit,
+  Loader2,
+  Save,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 interface SpecificationDetailProps {
   specificationId?: number;
   onBack: () => void;
   onSave?: (spec: APISpecification) => void;
+  onEdit?: () => void;
+  readOnly?: boolean;
 }
 
 interface FormData {
@@ -50,6 +60,8 @@ export function SpecificationDetail({
   specificationId,
   onBack,
   onSave,
+  onEdit,
+  readOnly = false,
 }: SpecificationDetailProps) {
   const apiClient = useApiClient();
   const [loading, setLoading] = useState(false);
@@ -313,10 +325,18 @@ export function SpecificationDetail({
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
+          {readOnly && onEdit && (
+            <Button variant="outline" size="sm" onClick={onEdit}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
+          )}
           <div>
             <h1 className="text-3xl font-bold">
               {isCreateMode
                 ? "Create API Specification"
+                : readOnly
+                ? "View API Specification"
                 : "Edit API Specification"}
             </h1>
             {specification && (
@@ -329,26 +349,28 @@ export function SpecificationDetail({
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {hasUnsavedChanges && (
-            <span className="text-sm text-muted-foreground flex items-center gap-1">
-              <AlertCircle className="h-4 w-4" />
-              Unsaved changes
-            </span>
-          )}
-          <Button
-            onClick={handleSave}
-            disabled={saving || validationErrors.length > 0}
-            className="flex items-center gap-2"
-          >
-            {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
+        {!readOnly && (
+          <div className="flex items-center gap-2">
+            {hasUnsavedChanges && (
+              <span className="text-sm text-muted-foreground flex items-center gap-1">
+                <AlertCircle className="h-4 w-4" />
+                Unsaved changes
+              </span>
             )}
-            {saving ? "Saving..." : "Save"}
-          </Button>
-        </div>
+            <Button
+              onClick={handleSave}
+              disabled={saving || validationErrors.length > 0}
+              className="flex items-center gap-2"
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              {saving ? "Saving..." : "Save"}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Error Display */}
@@ -411,6 +433,7 @@ export function SpecificationDetail({
                     value={formData.name}
                     onChange={(e) => handleFormChange("name", e.target.value)}
                     placeholder="Enter specification name"
+                    readOnly={readOnly}
                   />
                 </FormControl>
                 <FormDescription>
@@ -428,6 +451,7 @@ export function SpecificationDetail({
                       handleFormChange("version_string", e.target.value)
                     }
                     placeholder="e.g., 1.0.0"
+                    readOnly={readOnly}
                   />
                 </FormControl>
                 <FormDescription>Semantic version of your API</FormDescription>
@@ -450,22 +474,24 @@ export function SpecificationDetail({
           <div className="bg-card border rounded-lg overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b">
               <h2 className="text-xl font-semibold">OpenAPI Content</h2>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={toggleEditorLanguage}
-                >
-                  {editorLanguage.toUpperCase()}
-                </Button>
-              </div>
+              {!readOnly && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={toggleEditorLanguage}
+                  >
+                    {editorLanguage.toUpperCase()}
+                  </Button>
+                </div>
+              )}
             </div>
             <div className="h-[600px]">
               <Editor
                 height="100%"
                 language={editorLanguage}
                 value={formData.openapi_content}
-                onChange={handleEditorChange}
+                onChange={readOnly ? undefined : handleEditorChange}
                 theme="vs-dark"
                 options={{
                   minimap: { enabled: false },
@@ -478,6 +504,7 @@ export function SpecificationDetail({
                   automaticLayout: true,
                   formatOnPaste: true,
                   formatOnType: true,
+                  readOnly: readOnly,
                 }}
               />
             </div>
