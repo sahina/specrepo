@@ -81,6 +81,7 @@ export function SpecificationDetail({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
   const [editorLanguage, setEditorLanguage] = useState<"json" | "yaml">("json");
+  const [justSaved, setJustSaved] = useState(false);
 
   const isCreateMode = !specificationId;
 
@@ -146,6 +147,17 @@ export function SpecificationDetail({
     }
   }, [specificationId, apiClient, isCreateMode]);
 
+  // Auto-hide the "justSaved" notification after 3 seconds
+  useEffect(() => {
+    if (justSaved) {
+      const timer = setTimeout(() => {
+        setJustSaved(false);
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [justSaved]);
+
   const validateOpenAPIContent = useCallback(
     (content: string): ValidationError[] => {
       const errors: ValidationError[] = [];
@@ -207,6 +219,7 @@ export function SpecificationDetail({
   const handleFormChange = (field: keyof FormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     setHasUnsavedChanges(true);
+    setJustSaved(false);
 
     // Validate OpenAPI content on change
     if (field === "openapi_content") {
@@ -277,6 +290,7 @@ export function SpecificationDetail({
       setSpecification(savedSpec);
       setHasUnsavedChanges(false);
       onSave?.(savedSpec);
+      setJustSaved(true);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to save specification",
@@ -407,14 +421,17 @@ export function SpecificationDetail({
       )}
 
       {/* Success Indicator */}
-      {!hasUnsavedChanges && !isCreateMode && validationErrors.length === 0 && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-center gap-2">
-            <Check className="h-5 w-5 text-green-600" />
-            <p className="text-green-800 font-medium">All changes saved</p>
+      {!hasUnsavedChanges &&
+        !isCreateMode &&
+        validationErrors.length === 0 &&
+        justSaved && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-center gap-2">
+              <Check className="h-5 w-5 text-green-600" />
+              <p className="text-green-800 font-medium">All changes saved</p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Form */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
