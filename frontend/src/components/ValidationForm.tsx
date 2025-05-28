@@ -24,9 +24,10 @@ import {
   Link,
   Loader2,
   Play,
+  Server,
   Settings,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 interface ValidationFormProps {
   onValidationTriggered?: (validationId: number) => void;
@@ -41,11 +42,28 @@ interface ValidationFormData {
   provider_selection_mode: ProviderSelectionMode;
   environment_id: number | null;
   provider_url: string;
+  selected_environment_option: string | null;
   auth_method: AuthMethod;
   auth_config: Record<string, string>;
   test_strategies: string[];
   max_examples: number;
   timeout: number;
+}
+
+// Interface for OpenAPI server definitions
+interface OpenAPIServer {
+  url: string;
+  description?: string;
+}
+
+// Combined environment option (either user environment or OpenAPI server)
+interface EnvironmentOption {
+  id: string;
+  name: string;
+  url: string;
+  type: "user-environment" | "openapi-server";
+  description?: string;
+  environment_type?: EnvironmentType;
 }
 
 const AUTH_METHODS: {
@@ -113,12 +131,101 @@ export function ValidationForm({
     provider_selection_mode: "environment",
     environment_id: null,
     provider_url: "",
+    selected_environment_option: null,
     auth_method: AuthMethod.NONE,
     auth_config: {},
     test_strategies: DEFAULT_TEST_STRATEGIES,
     max_examples: 100,
     timeout: 300,
   });
+
+  // Extract OpenAPI servers from selected specification
+  const extractOpenAPIServers = useCallback(
+    (spec: APISpecification): OpenAPIServer[] => {
+      try {
+        const servers = spec.openapi_content?.servers;
+        if (Array.isArray(servers)) {
+          return servers
+            .filter(
+              (
+                server: unknown,
+              ): server is { url: string; description?: string } => {
+                if (!server || typeof server !== "object" || server === null)
+                  return false;
+                const serverObj = server as Record<string, unknown>;
+                return "url" in serverObj && typeof serverObj.url === "string";
+              },
+            )
+            .map((server: { url: string; description?: string }) => ({
+              url: server.url,
+              description: server.description || undefined,
+            }));
+        }
+      } catch (error) {
+        console.warn(
+          "Failed to extract servers from OpenAPI specification:",
+          error,
+        );
+      }
+      return [];
+    },
+    [],
+  );
+
+  // Get combined environment options (OpenAPI servers + user environments)
+  const environmentOptions = useMemo((): EnvironmentOption[] => {
+    const options: EnvironmentOption[] = [];
+
+    // Add OpenAPI servers from selected specification
+    if (formData.api_specification_id) {
+      const selectedSpec = specifications.find(
+        (spec) => spec.id === formData.api_specification_id,
+      );
+      if (selectedSpec) {
+        const servers = extractOpenAPIServers(selectedSpec);
+        servers.forEach((server, index) => {
+          options.push({
+            id: `openapi-server-${index}`,
+            name: server.description || `Server ${index + 1}`,
+            url: server.url,
+            type: "openapi-server",
+            description: server.description,
+          });
+        });
+      }
+    }
+
+    // Add user-defined environments
+    environments.forEach((env) => {
+      options.push({
+        id: `user-env-${env.id}`,
+        name: env.name,
+        url: env.base_url,
+        type: "user-environment",
+        description: env.description,
+        environment_type: env.environment_type,
+      });
+    });
+
+    return options;
+  }, [
+    formData.api_specification_id,
+    specifications,
+    environments,
+    extractOpenAPIServers,
+  ]);
+
+  // Reset selected environment when API specification changes
+  useEffect(() => {
+    if (formData.api_specification_id) {
+      setFormData((prev) => ({
+        ...prev,
+        selected_environment_option: null,
+        environment_id: null,
+        provider_url: "",
+      }));
+    }
+  }, [formData.api_specification_id]);
 
   // Load specifications and environments
   const fetchData = useCallback(async () => {
@@ -177,8 +284,8 @@ export function ValidationForm({
     }
 
     if (formData.provider_selection_mode === "environment") {
-      if (!formData.environment_id) {
-        return "Please select an environment";
+      if (!formData.selected_environment_option) {
+        return "Please select an environment or server";
       }
     } else {
       if (!formData.provider_url.trim()) {
@@ -216,6 +323,14 @@ export function ValidationForm({
     return null;
   };
 
+  // Get the selected environment option details
+  const getSelectedEnvironmentDetails = useCallback(() => {
+    if (!formData.selected_environment_option) return null;
+    return environmentOptions.find(
+      (option) => option.id === formData.selected_environment_option,
+    );
+  }, [formData.selected_environment_option, environmentOptions]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -249,9 +364,19 @@ export function ValidationForm({
         timeout: formData.timeout,
       };
 
-      // Add either environment_id or provider_url based on selection mode
+      // Handle environment/server selection
       if (formData.provider_selection_mode === "environment") {
-        validationData.environment_id = formData.environment_id!;
+        const selectedOption = getSelectedEnvironmentDetails();
+        if (selectedOption) {
+          if (selectedOption.type === "user-environment") {
+            // Extract environment ID from the option ID
+            const envId = parseInt(selectedOption.id.replace("user-env-", ""));
+            validationData.environment_id = envId;
+          } else {
+            // For OpenAPI servers, use the URL directly
+            validationData.provider_url = selectedOption.url;
+          }
+        }
       } else {
         validationData.provider_url = formData.provider_url;
       }
@@ -314,32 +439,102 @@ export function ValidationForm({
 
         {formData.provider_selection_mode === "environment" ? (
           <div className="space-y-2">
-            <Label htmlFor="environment_id">Environment</Label>
+            <Label htmlFor="environment_option">Environment / Server</Label>
             <select
-              id="environment_id"
-              value={formData.environment_id || ""}
+              id="environment_option"
+              value={formData.selected_environment_option || ""}
               onChange={(e) =>
                 handleInputChange(
-                  "environment_id",
-                  e.target.value ? parseInt(e.target.value) : null,
+                  "selected_environment_option",
+                  e.target.value || null,
                 )
               }
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={loading}
             >
-              <option value="">Select an environment...</option>
-              {environments.map((env) => (
-                <option key={env.id} value={env.id}>
-                  {env.name} ({ENVIRONMENT_TYPE_LABELS[env.environment_type]}) -{" "}
-                  {env.base_url}
-                </option>
-              ))}
+              <option value="">Select an environment or server...</option>
+
+              {/* Group OpenAPI servers */}
+              {environmentOptions.filter(
+                (option) => option.type === "openapi-server",
+              ).length > 0 && (
+                <optgroup label="📋 Specification Servers">
+                  {environmentOptions
+                    .filter((option) => option.type === "openapi-server")
+                    .map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.name} - {option.url}
+                      </option>
+                    ))}
+                </optgroup>
+              )}
+
+              {/* Group user environments */}
+              {environmentOptions.filter(
+                (option) => option.type === "user-environment",
+              ).length > 0 && (
+                <optgroup label="🌍 User Environments">
+                  {environmentOptions
+                    .filter((option) => option.type === "user-environment")
+                    .map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.name} (
+                        {ENVIRONMENT_TYPE_LABELS[option.environment_type!]}) -{" "}
+                        {option.url}
+                      </option>
+                    ))}
+                </optgroup>
+              )}
             </select>
-            {environments.length === 0 && !loading && (
+
+            {environmentOptions.length === 0 && !loading && (
               <p className="text-sm text-muted-foreground">
-                No environments available. You can create environments in the
-                Settings page.
+                {formData.api_specification_id
+                  ? "No servers defined in the specification and no user environments available. You can create environments in the Settings page or use a custom URL."
+                  : "Please select an API specification first."}
               </p>
+            )}
+
+            {/* Show selected environment details */}
+            {formData.selected_environment_option && (
+              <div className="mt-2 p-3 bg-muted/50 rounded-lg">
+                {(() => {
+                  const selectedOption = getSelectedEnvironmentDetails();
+                  if (!selectedOption) return null;
+
+                  return (
+                    <div className="flex items-start gap-2">
+                      {selectedOption.type === "openapi-server" ? (
+                        <Server className="h-4 w-4 mt-0.5 text-blue-600" />
+                      ) : (
+                        <Globe className="h-4 w-4 mt-0.5 text-green-600" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">
+                          {selectedOption.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground break-all">
+                          {selectedOption.url}
+                        </p>
+                        {selectedOption.description && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {selectedOption.description}
+                          </p>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {selectedOption.type === "openapi-server"
+                            ? "From API specification"
+                            : `User environment (${
+                                ENVIRONMENT_TYPE_LABELS[
+                                  selectedOption.environment_type!
+                                ]
+                              })`}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
             )}
           </div>
         ) : (
