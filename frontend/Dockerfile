@@ -18,14 +18,11 @@ ENV ROLLUP_NO_NATIVE=true
 # Copy package files for dependency installation
 COPY package.json pnpm-lock.yaml* ./
 
-# Install dependencies
+# Install dependencies including devDependencies for development
 RUN pnpm install --frozen-lockfile
 
 # Copy the rest of the application code
 COPY . ./
-
-# Build the app for production
-RUN pnpm build
 
 # Expose port (Vite default is 5173, but can be configured)
 EXPOSE 5173
