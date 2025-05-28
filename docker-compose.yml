@@ -9,6 +9,8 @@ services:
       - ./backend:/app
     environment:
       - DATABASE_URL=postgresql://user:password@postgres:5432/appdb
+      # WireMock Integration Configuration
+      - WIREMOCK_URL=http://wiremock:8080
       # n8n Integration Configuration
       - N8N_WEBHOOK_URL=http://n8n:5678/webhook-test/api-spec-notification
       - N8N_WEBHOOK_SECRET=specrepo-n8n-secret-2024

@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from typing import Any, Dict, List, Optional, Union
 
 import httpx
@@ -59,9 +60,7 @@ class OpenAPIParser:
                     # Try YAML
                     return yaml.safe_load(content)
                 except yaml.YAMLError as e:
-                    raise ValueError(
-                        f"Failed to parse OpenAPI specification: {e}"
-                    )
+                    raise ValueError(f"Failed to parse OpenAPI specification: {e}")
         elif isinstance(content, dict):
             return content
         else:
@@ -151,9 +150,7 @@ class OpenAPIParser:
             properties = schema.get("properties", {})
             example_obj = {}
             for prop_name, prop_schema in properties.items():
-                prop_example = OpenAPIParser.get_example_from_schema(
-                    prop_schema
-                )
+                prop_example = OpenAPIParser.get_example_from_schema(prop_schema)
                 if prop_example is not None:
                     example_obj[prop_name] = prop_example
             return example_obj
@@ -165,9 +162,7 @@ class WireMockStubGenerator:
     """Generates WireMock stub configurations from OpenAPI endpoints."""
 
     @staticmethod
-    def generate_stub(
-        endpoint: OpenAPIEndpoint, base_url: str = ""
-    ) -> WireMockStub:
+    def generate_stub(endpoint: OpenAPIEndpoint, base_url: str = "") -> WireMockStub:
         """
         Generate WireMock stub from OpenAPI endpoint.
 
@@ -187,31 +182,23 @@ class WireMockStubGenerator:
         }
 
         # Add query parameter matchers
-        query_params = WireMockStubGenerator._extract_query_parameters(
-            endpoint.parameters
-        )
+        query_params = WireMockStubGenerator._extract_query_parameters(endpoint.parameters)
         if query_params:
             request_config["queryParameters"] = query_params
 
         # Add header matchers
-        header_params = WireMockStubGenerator._extract_header_parameters(
-            endpoint.parameters
-        )
+        header_params = WireMockStubGenerator._extract_header_parameters(endpoint.parameters)
         if header_params:
             request_config["headers"] = header_params
 
         # Add request body matcher
         if endpoint.request_body:
-            body_matcher = WireMockStubGenerator._build_body_matcher(
-                endpoint.request_body
-            )
+            body_matcher = WireMockStubGenerator._build_body_matcher(endpoint.request_body)
             if body_matcher:
                 request_config.update(body_matcher)
 
         # Build response
-        response_config = WireMockStubGenerator._build_response(
-            endpoint.responses
-        )
+        response_config = WireMockStubGenerator._build_response(endpoint.responses)
 
         # Add metadata
         metadata = {
@@ -220,9 +207,7 @@ class WireMockStubGenerator:
             "tags": endpoint.tags,
         }
 
-        return WireMockStub(
-            request=request_config, response=response_config, metadata=metadata
-        )
+        return WireMockStub(request=request_config, response=response_config, metadata=metadata)
 
     @staticmethod
     def _build_url_pattern(path: str, parameters: List[Dict[str, Any]]) -> str:
@@ -238,9 +223,7 @@ class WireMockStubGenerator:
                     placeholder = f"{{{param_name}}}"
                     if placeholder in url_pattern:
                         # Use appropriate regex based on parameter type
-                        param_type = param.get("schema", {}).get(
-                            "type", "string"
-                        )
+                        param_type = param.get("schema", {}).get("type", "string")
                         if param_type == "integer":
                             pattern = r"[0-9]+"
                         elif param_type == "number":
@@ -248,9 +231,7 @@ class WireMockStubGenerator:
                         else:
                             pattern = r"[^/]+"
 
-                        url_pattern = url_pattern.replace(
-                            placeholder, f"({pattern})"
-                        )
+                        url_pattern = url_pattern.replace(placeholder, f"({pattern})")
 
         return url_pattern
 
@@ -329,9 +310,7 @@ class WireMockStubGenerator:
         """Build response configuration."""
         # Default to 200 OK if available, otherwise use first response
         response_spec = (
-            responses.get("200")
-            or responses.get("201")
-            or next(iter(responses.values()), {})
+            responses.get("200") or responses.get("201") or next(iter(responses.values()), {})
         )
 
         response_config = {
@@ -374,13 +353,15 @@ class WireMockStubGenerator:
 class WireMockClient:
     """Client for interacting with WireMock Admin API."""
 
-    def __init__(self, base_url: str = "http://localhost:8081"):
+    def __init__(self, base_url: str = None):
         """
         Initialize WireMock client.
 
         Args:
-            base_url: WireMock server base URL
+            base_url: WireMock server base URL (defaults to environment variable or localhost)
         """
+        if base_url is None:
+            base_url = os.getenv("WIREMOCK_URL", "http://localhost:8081")
         self.base_url = base_url.rstrip("/")
         self.admin_url = f"{self.base_url}/__admin"
 
@@ -441,9 +422,7 @@ class WireMockClient:
             httpx.HTTPError: If request fails
         """
         async with httpx.AsyncClient() as client:
-            response = await client.delete(
-                f"{self.admin_url}/mappings/{stub_id}"
-            )
+            response = await client.delete(f"{self.admin_url}/mappings/{stub_id}")
             response.raise_for_status()
             return True
 
@@ -481,12 +460,12 @@ class WireMockClient:
 class WireMockIntegrationService:
     """Main service for WireMock integration."""
 
-    def __init__(self, wiremock_url: str = "http://localhost:8081"):
+    def __init__(self, wiremock_url: str = None):
         """
         Initialize WireMock integration service.
 
         Args:
-            wiremock_url: WireMock server URL
+            wiremock_url: WireMock server URL (defaults to environment variable or localhost)
         """
         self.parser = OpenAPIParser()
         self.stub_generator = WireMockStubGenerator()
@@ -516,10 +495,7 @@ class WireMockIntegrationService:
             openapi_spec = self.parser.parse_specification(openapi_content)
             endpoints = self.parser.extract_endpoints(openapi_spec)
 
-            logger.info(
-                f"Extracted {len(endpoints)} endpoints from OpenAPI "
-                f"specification"
-            )
+            logger.info(f"Extracted {len(endpoints)} endpoints from OpenAPI specification")
 
             # Clear existing stubs if requested
             if clear_existing:
@@ -540,14 +516,11 @@ class WireMockIntegrationService:
                     )
                 except Exception as e:
                     logger.error(
-                        f"Failed to create stub for {endpoint.method} "
-                        f"{endpoint.path}: {e}"
+                        f"Failed to create stub for {endpoint.method} {endpoint.path}: {e}"
                     )
                     # Continue with other endpoints
 
-            logger.info(
-                f"Successfully created {len(created_stubs)} WireMock stubs"
-            )
+            logger.info(f"Successfully created {len(created_stubs)} WireMock stubs")
             return created_stubs
 
         except Exception as e:
