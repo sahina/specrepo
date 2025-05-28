@@ -56,14 +56,15 @@ interface OpenAPIServer {
   description?: string;
 }
 
-// Combined environment option (either user environment or OpenAPI server)
+// Combined environment option (either user environment, OpenAPI server, or mock deployment)
 interface EnvironmentOption {
   id: string;
   name: string;
   url: string;
-  type: "user-environment" | "openapi-server";
+  type: "user-environment" | "openapi-server" | "mock-deployment";
   description?: string;
   environment_type?: EnvironmentType;
+  isAvailable?: boolean; // For mock deployments, indicates if mocks are deployed
 }
 
 const AUTH_METHODS: {
@@ -121,6 +122,9 @@ export function ValidationForm({
   const apiClient = useApiClient();
   const [specifications, setSpecifications] = useState<APISpecification[]>([]);
   const [environments, setEnvironments] = useState<Environment[]>([]);
+  const [mockDeploymentStatus, setMockDeploymentStatus] = useState<
+    Record<number, { isDeployed: boolean; stubCount: number }>
+  >({});
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -172,7 +176,7 @@ export function ValidationForm({
     [],
   );
 
-  // Get combined environment options (OpenAPI servers + user environments)
+  // Get combined environment options (OpenAPI servers + user environments + mock deployments)
   const environmentOptions = useMemo((): EnvironmentOption[] => {
     const options: EnvironmentOption[] = [];
 
@@ -192,6 +196,21 @@ export function ValidationForm({
             description: server.description,
           });
         });
+
+        // Add mock deployment option if available
+        const mockStatus = mockDeploymentStatus[selectedSpec.id];
+        if (mockStatus) {
+          options.push({
+            id: `mock-deployment-${selectedSpec.id}`,
+            name: `Mock Server (${mockStatus.stubCount} stubs)`,
+            url: "http://localhost:8081", // WireMock base URL
+            type: "mock-deployment",
+            description: mockStatus.isDeployed
+              ? `Deployed mock server with ${mockStatus.stubCount} endpoints`
+              : "Mock server not deployed",
+            isAvailable: mockStatus.isDeployed,
+          });
+        }
       }
     }
 
@@ -213,6 +232,7 @@ export function ValidationForm({
     specifications,
     environments,
     extractOpenAPIServers,
+    mockDeploymentStatus,
   ]);
 
   // Reset selected environment when API specification changes
@@ -254,6 +274,44 @@ export function ValidationForm({
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Load mock deployment status for specifications
+  const loadMockDeploymentStatus = useCallback(async () => {
+    if (!apiClient || specifications.length === 0) return;
+
+    try {
+      const statusMap: Record<
+        number,
+        { isDeployed: boolean; stubCount: number }
+      > = {};
+
+      // Check mock deployment status for each specification
+      for (const spec of specifications) {
+        try {
+          const response = await apiClient.getWireMockStubs(spec.id);
+          statusMap[spec.id] = {
+            isDeployed: response.total_stubs > 0,
+            stubCount: response.total_stubs,
+          };
+        } catch {
+          // If we can't get status, assume not deployed
+          statusMap[spec.id] = {
+            isDeployed: false,
+            stubCount: 0,
+          };
+        }
+      }
+
+      setMockDeploymentStatus(statusMap);
+    } catch (error) {
+      console.warn("Failed to load mock deployment status:", error);
+    }
+  }, [apiClient, specifications]);
+
+  // Load mock deployment status when specifications change
+  useEffect(() => {
+    loadMockDeploymentStatus();
+  }, [loadMockDeploymentStatus]);
 
   const handleInputChange = (
     field: keyof ValidationFormData,
@@ -373,7 +431,7 @@ export function ValidationForm({
             const envId = parseInt(selectedOption.id.replace("user-env-", ""));
             validationData.environment_id = envId;
           } else {
-            // For OpenAPI servers, use the URL directly
+            // For OpenAPI servers and mock deployments, use the URL directly
             validationData.provider_url = selectedOption.url;
           }
         }
@@ -469,6 +527,26 @@ export function ValidationForm({
                 </optgroup>
               )}
 
+              {/* Group mock deployments */}
+              {environmentOptions.filter(
+                (option) => option.type === "mock-deployment",
+              ).length > 0 && (
+                <optgroup label="🔧 Mock Deployments">
+                  {environmentOptions
+                    .filter((option) => option.type === "mock-deployment")
+                    .map((option) => (
+                      <option
+                        key={option.id}
+                        value={option.id}
+                        disabled={!option.isAvailable}
+                      >
+                        {option.name} - {option.url}
+                        {!option.isAvailable && " (Not Deployed)"}
+                      </option>
+                    ))}
+                </optgroup>
+              )}
+
               {/* Group user environments */}
               {environmentOptions.filter(
                 (option) => option.type === "user-environment",
@@ -490,7 +568,7 @@ export function ValidationForm({
             {environmentOptions.length === 0 && !loading && (
               <p className="text-sm text-muted-foreground">
                 {formData.api_specification_id
-                  ? "No servers defined in the specification and no user environments available. You can create environments in the Settings page or use a custom URL."
+                  ? "No servers defined in the specification, no mock deployments available, and no user environments found. You can deploy mocks, create environments in Settings, or use a custom URL."
                   : "Please select an API specification first."}
               </p>
             )}
@@ -506,6 +584,21 @@ export function ValidationForm({
                     <div className="flex items-start gap-2">
                       {selectedOption.type === "openapi-server" ? (
                         <Server className="h-4 w-4 mt-0.5 text-blue-600" />
+                      ) : selectedOption.type === "mock-deployment" ? (
+                        <div className="flex items-center gap-1">
+                          <Server className="h-4 w-4 mt-0.5 text-orange-600" />
+                          {selectedOption.isAvailable ? (
+                            <div
+                              className="h-2 w-2 bg-green-500 rounded-full"
+                              title="Mock server is deployed"
+                            />
+                          ) : (
+                            <div
+                              className="h-2 w-2 bg-red-500 rounded-full"
+                              title="Mock server not deployed"
+                            />
+                          )}
+                        </div>
                       ) : (
                         <Globe className="h-4 w-4 mt-0.5 text-green-600" />
                       )}
@@ -524,6 +617,10 @@ export function ValidationForm({
                         <p className="text-xs text-muted-foreground mt-1">
                           {selectedOption.type === "openapi-server"
                             ? "From API specification"
+                            : selectedOption.type === "mock-deployment"
+                            ? selectedOption.isAvailable
+                              ? "Deployed mock server (ready for testing)"
+                              : "Mock server not deployed (deploy first)"
                             : `User environment (${
                                 ENVIRONMENT_TYPE_LABELS[
                                   selectedOption.environment_type!
