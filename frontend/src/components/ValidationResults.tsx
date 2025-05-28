@@ -30,15 +30,28 @@ interface SchemathesisResults {
   failed_tests?: number;
   error_tests?: number;
   skipped_tests?: number;
-  duration?: number;
+  execution_time?: number;
   error?: string;
+  errors?: string[];
   test_results?: Array<{
-    endpoint: string;
     method: string;
-    status: "passed" | "failed" | "error";
-    message?: string;
+    path: string;
+    status_code: number;
+    passed: boolean;
+    timestamp: string;
     response_time?: number;
+    issues?: string[];
+    error?: string;
+    response_body?: string;
   }>;
+  summary?: {
+    total_tests: number;
+    passed_tests: number;
+    failed_tests: number;
+    success_rate: number;
+    execution_time: number;
+    status: string;
+  };
   coverage?: {
     endpoints_tested: number;
     total_endpoints: number;
@@ -141,6 +154,16 @@ export function ValidationResults({
     }
   };
 
+  const getTestStatus = (test: {
+    passed: boolean;
+    status_code: number;
+    error?: string;
+  }): "passed" | "failed" | "error" => {
+    if (test.error) return "error";
+    if (test.passed) return "passed";
+    return "failed";
+  };
+
   const renderSummaryStats = (results: SchemathesisResults) => {
     const stats = [
       {
@@ -230,26 +253,78 @@ export function ValidationResults({
         <CardContent>
           <div className="space-y-3">
             {results.test_results.map((test, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-3 border rounded-lg"
-              >
-                <div className="flex items-center gap-3">
-                  {getTestStatusIcon(test.status)}
-                  <div>
-                    <div className="font-medium">
-                      {test.method.toUpperCase()} {test.endpoint}
-                    </div>
-                    {test.message && (
+              <div key={index} className="p-4 border rounded-lg space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {getTestStatusIcon(getTestStatus(test))}
+                    <div>
+                      <div className="font-medium">
+                        {test.method.toUpperCase()} {test.path}
+                      </div>
                       <div className="text-sm text-muted-foreground">
-                        {test.message}
+                        Status: {test.status_code}
+                        {test.response_time && (
+                          <span className="ml-2">
+                            • Response time: {test.response_time.toFixed(2)}s
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div
+                      className={`text-sm font-medium ${
+                        test.passed ? "text-green-600" : "text-red-600"
+                      }`}
+                    >
+                      {test.passed ? "PASSED" : "FAILED"}
+                    </div>
+                    {test.timestamp && (
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(test.timestamp).toLocaleTimeString()}
                       </div>
                     )}
                   </div>
                 </div>
-                {test.response_time && (
-                  <div className="text-sm text-muted-foreground">
-                    {test.response_time}ms
+
+                {/* Issues */}
+                {test.issues && test.issues.length > 0 && (
+                  <div className="mt-2">
+                    <div className="text-sm font-medium text-orange-600 mb-1">
+                      Issues:
+                    </div>
+                    <ul className="text-sm text-muted-foreground space-y-1">
+                      {test.issues.map((issue, issueIndex) => (
+                        <li key={issueIndex} className="flex items-start gap-2">
+                          <AlertCircle className="h-3 w-3 text-orange-500 mt-0.5 flex-shrink-0" />
+                          {issue}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Error details */}
+                {test.error && (
+                  <div className="mt-2">
+                    <div className="text-sm font-medium text-red-600 mb-1">
+                      Error:
+                    </div>
+                    <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
+                      {test.error}
+                    </div>
+                  </div>
+                )}
+
+                {/* Response body for failed tests */}
+                {test.response_body && !test.passed && (
+                  <div className="mt-2">
+                    <div className="text-sm font-medium text-muted-foreground mb-1">
+                      Response:
+                    </div>
+                    <div className="text-xs text-muted-foreground bg-gray-50 p-2 rounded font-mono max-h-32 overflow-y-auto">
+                      {test.response_body}
+                    </div>
                   </div>
                 )}
               </div>
@@ -431,7 +506,7 @@ export function ValidationResults({
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Duration</span>
                 <span className="font-medium">
-                  {formatDuration(results?.duration)}
+                  {formatDuration(results?.execution_time)}
                 </span>
               </div>
             </div>
@@ -471,13 +546,70 @@ export function ValidationResults({
             </div>
           )}
 
+          {/* General Errors */}
+          {results.errors && results.errors.length > 0 && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertCircle className="h-5 w-5 text-orange-600" />
+                <p className="text-orange-600 font-medium">
+                  Test Execution Issues
+                </p>
+              </div>
+              <ul className="space-y-1">
+                {results.errors.map((error, index) => (
+                  <li key={index} className="text-orange-700 text-sm">
+                    • {error}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Summary Statistics */}
-          {results.total_tests && (
+          {(results.total_tests || results.summary) && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Test Summary</CardTitle>
               </CardHeader>
-              <CardContent>{renderSummaryStats(results)}</CardContent>
+              <CardContent>
+                {renderSummaryStats(results)}
+                {results.summary && (
+                  <div className="mt-4 pt-4 border-t">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-blue-600">
+                          {results.summary.success_rate.toFixed(1)}%
+                        </div>
+                        <div className="text-muted-foreground">
+                          Success Rate
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-purple-600">
+                          {results.summary.execution_time.toFixed(2)}s
+                        </div>
+                        <div className="text-muted-foreground">
+                          Execution Time
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div
+                          className={`text-lg font-bold ${
+                            results.summary.status === "PASSED"
+                              ? "text-green-600"
+                              : "text-red-600"
+                          }`}
+                        >
+                          {results.summary.status}
+                        </div>
+                        <div className="text-muted-foreground">
+                          Overall Status
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
             </Card>
           )}
 
