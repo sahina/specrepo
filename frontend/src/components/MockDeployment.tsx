@@ -149,8 +149,9 @@ export function MockDeployment({
     setError(null);
 
     try {
-      const response: WireMockStatusResponse =
-        await apiClient.getWireMockStubs();
+      const response: WireMockStatusResponse = await apiClient.getWireMockStubs(
+        specificationId,
+      );
 
       // Extract endpoints from stubs
       const endpoints = extractEndpointsFromStubs(response.stubs);
@@ -175,7 +176,7 @@ export function MockDeployment({
     } finally {
       setLoading(false);
     }
-  }, [apiClient]);
+  }, [apiClient, specificationId, extractEndpointsFromStubs]);
 
   // Load status on component mount
   useEffect(() => {

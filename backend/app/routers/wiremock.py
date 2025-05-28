@@ -1,7 +1,7 @@
 import logging
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -75,8 +75,7 @@ async def generate_stubs(
         if not specification:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"API specification with ID {request.specification_id} "
-                f"not found",
+                detail=f"API specification with ID {request.specification_id} not found",
             )
 
         # Initialize WireMock service
@@ -86,6 +85,8 @@ async def generate_stubs(
         created_stubs = await wiremock_service.generate_stubs_from_openapi(
             specification.openapi_content,
             clear_existing=request.clear_existing,
+            specification_id=specification.id,
+            specification_name=specification.name,
         )
 
         # Convert to response format
@@ -105,8 +106,7 @@ async def generate_stubs(
         )
 
         return WireMockGenerateResponse(
-            message=f"Successfully generated {len(created_stubs)} WireMock "
-            f"stubs",
+            message=f"Successfully generated {len(created_stubs)} WireMock stubs",
             stubs_created=len(created_stubs),
             stubs=stub_responses,
         )
@@ -125,15 +125,19 @@ async def generate_stubs(
     "/stubs",
     response_model=WireMockStatusResponse,
     summary="Get WireMock Stubs",
-    description="Get all current WireMock stubs.",
+    description="Get all current WireMock stubs, optionally filtered by specification ID.",
 )
 async def get_stubs(
+    specification_id: Optional[int] = Query(
+        None, description="Filter stubs by API specification ID"
+    ),
     current_user: User = Depends(get_current_user),
 ) -> WireMockStatusResponse:
     """
     Get all current WireMock stubs.
 
     Returns a list of all stubs currently configured in WireMock.
+    If specification_id is provided, only returns stubs for that specification.
     """
     try:
         # Initialize WireMock service
@@ -141,6 +145,15 @@ async def get_stubs(
 
         # Get all stubs
         stubs = await wiremock_service.get_all_stubs()
+
+        # Filter by specification_id if provided
+        if specification_id is not None:
+            filtered_stubs = []
+            for stub in stubs:
+                metadata = stub.get("metadata", {})
+                if metadata.get("specificationId") == specification_id:
+                    filtered_stubs.append(stub)
+            stubs = filtered_stubs
 
         # Convert to response format
         stub_responses = [
@@ -153,9 +166,7 @@ async def get_stubs(
             for stub in stubs
         ]
 
-        return WireMockStatusResponse(
-            total_stubs=len(stubs), stubs=stub_responses
-        )
+        return WireMockStatusResponse(total_stubs=len(stubs), stubs=stub_responses)
 
     except Exception as e:
         logger.error(f"Error getting WireMock stubs: {str(e)}")
