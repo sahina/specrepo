@@ -16,6 +16,7 @@ dependencies = [
     "pyyaml>=6.0.0",
     "schemathesis==3.39.16",
     "python-multipart>=0.0.20",
+    "openapi-spec-validator>=0.7.1",
 ]
 
 [project.optional-dependencies]
