@@ -95,7 +95,7 @@ graph TD
    - Select "SMTP" from the list
    - Configure your email settings:
 
-   ```
+   ```text
    Host: smtp.gmail.com (for Gmail)
    Port: 587
    Username: your-email@gmail.com
