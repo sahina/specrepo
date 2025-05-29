@@ -9,7 +9,6 @@ sys.path.append(".")
 from app.db.session import get_db
 from app.models import User
 from app.services.har_processing import HARProcessingService
-from app.services.har_uploads import HARUploadService
 
 
 async def test_processing():
