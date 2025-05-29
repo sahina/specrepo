@@ -9,6 +9,7 @@ from fastapi import (
     File,
     HTTPException,
     Query,
+    Response,
     UploadFile,
     status,
 )
@@ -19,7 +20,16 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.dependencies import get_current_user
 from app.models import User
-from app.schemas import HARUploadFilters, HARUploadListResponse, HARUploadResponse
+from app.schemas import (
+    HARProcessingArtifactsResponse,
+    HARProcessingOptions,
+    HARProcessingResponse,
+    HARProcessingStatusResponse,
+    HARUploadFilters,
+    HARUploadListResponse,
+    HARUploadResponse,
+)
+from app.services.har_processing import HARProcessingService
 from app.services.har_uploads import HARUploadService
 
 logger = logging.getLogger(__name__)
@@ -31,6 +41,9 @@ MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB in bytes
 
 # Allowed file extensions
 ALLOWED_EXTENSIONS = {".har", ".json"}
+
+# Initialize processing service
+processing_service = HARProcessingService()
 
 
 def get_filters(
@@ -266,4 +279,216 @@ def delete_har_upload(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete HAR upload",
+        )
+
+
+# Background task function for HAR processing
+async def process_har_upload_background(
+    db: Session, upload_id: int, user_id: int, options: Optional[dict] = None
+):
+    """Background task to process HAR upload."""
+    try:
+        # Get user object (needed for service calls)
+        from app.models import User
+
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            logger.error(f"User {user_id} not found for HAR processing")
+            return
+
+        # Process the HAR upload
+        result = await processing_service.process_har_upload(db, upload_id, user, options)
+
+        if result["success"]:
+            logger.info(f"HAR processing completed successfully for upload {upload_id}")
+        else:
+            logger.error(f"HAR processing failed for upload {upload_id}: {result.get('error')}")
+
+    except Exception as e:
+        logger.error(f"Background HAR processing failed for upload {upload_id}: {e}")
+
+
+@router.post(
+    "/{upload_id}/process",
+    response_model=HARProcessingResponse,
+    summary="Process HAR File",
+    description="Process a HAR file and generate artifacts (OpenAPI specs, WireMock stubs).",
+)
+async def process_har_file(
+    upload_id: int,
+    background_tasks: BackgroundTasks,
+    response: Response,
+    options: Optional[HARProcessingOptions] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> HARProcessingResponse:
+    """
+    Process a HAR file and generate artifacts.
+
+    - **upload_id**: ID of the HAR upload to process
+    - **options**: Optional processing configuration
+    - Processes HAR file in the background
+    - Generates OpenAPI specification and WireMock stubs
+    - Returns processing status and initiates background task
+    """
+    try:
+        # Check if upload exists and belongs to user
+        upload = HARUploadService.get_har_upload(db, upload_id, current_user)
+        if not upload:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"HAR upload with ID {upload_id} not found",
+            )
+
+        # Check if already processed
+        if upload.processed_artifacts_references:
+            # Return 200 for already processed files
+            response.status_code = status.HTTP_200_OK
+            return HARProcessingResponse(
+                success=True,
+                upload_id=upload_id,
+                message="HAR file has already been processed",
+                processing_status=HARProcessingStatusResponse(
+                    status="completed",
+                    progress=100,
+                    artifacts_available=True,
+                ),
+            )
+
+        # Validate and normalize options
+        processing_options = None
+        if options:
+            processing_options = processing_service.validate_processing_options(
+                options.model_dump(exclude_unset=True)
+            )
+
+        # Start background processing
+        background_tasks.add_task(
+            process_har_upload_background,
+            db,
+            upload_id,
+            current_user.id,
+            processing_options,
+        )
+
+        logger.info(f"Started HAR processing for upload {upload_id} by user {current_user.id}")
+
+        # Return 202 for new processing requests
+        response.status_code = status.HTTP_202_ACCEPTED
+        return HARProcessingResponse(
+            success=True,
+            upload_id=upload_id,
+            message="HAR processing started",
+            processing_status=HARProcessingStatusResponse(
+                status="pending",
+                progress=0,
+                artifacts_available=False,
+            ),
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error starting HAR processing for upload {upload_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to start HAR processing",
+        )
+
+
+@router.get(
+    "/{upload_id}/status",
+    response_model=HARProcessingStatusResponse,
+    summary="Get Processing Status",
+    description="Get the processing status for a HAR upload.",
+)
+def get_processing_status(
+    upload_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> HARProcessingStatusResponse:
+    """
+    Get the processing status for a HAR upload.
+
+    - **upload_id**: ID of the HAR upload
+    - Returns current processing status and progress
+    - Indicates whether artifacts are available
+    """
+    try:
+        status_info = processing_service.get_processing_status(db, upload_id, current_user)
+
+        if not status_info:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"HAR upload with ID {upload_id} not found",
+            )
+
+        return HARProcessingStatusResponse(**status_info)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting processing status for upload {upload_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get processing status",
+        )
+
+
+@router.get(
+    "/{upload_id}/artifacts",
+    response_model=HARProcessingArtifactsResponse,
+    summary="Get Generated Artifacts",
+    description=(
+        "Get the generated artifacts (OpenAPI specs, WireMock stubs) for a processed HAR upload."
+    ),
+)
+def get_artifacts(
+    upload_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> HARProcessingArtifactsResponse:
+    """
+    Get the generated artifacts for a processed HAR upload.
+
+    - **upload_id**: ID of the HAR upload
+    - Returns OpenAPI specification and WireMock stubs
+    - Only available after processing is completed
+    """
+    try:
+        # Get the upload to verify ownership and get file info
+        upload = HARUploadService.get_har_upload(db, upload_id, current_user)
+        if not upload:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"HAR upload with ID {upload_id} not found",
+            )
+
+        # Get artifacts
+        artifacts = processing_service.get_artifacts(db, upload_id, current_user)
+        if not artifacts:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No artifacts found for HAR upload {upload_id}. Process the file first.",
+            )
+
+        # Extract processing metadata
+        metadata = artifacts.get("processing_metadata", {})
+        processed_at = metadata.get("processed_at")
+
+        return HARProcessingArtifactsResponse(
+            upload_id=upload_id,
+            file_name=upload.file_name,
+            artifacts=artifacts,
+            uploaded_at=upload.uploaded_at,
+            processed_at=processed_at,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting artifacts for upload {upload_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get artifacts",
         )

@@ -96,7 +96,9 @@ def create_sample_har_data():
                         "headers": [
                             {
                                 "name": "Authorization",
-                                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+                                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+                                "eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ."
+                                "SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
                             },
                             {"name": "Accept", "value": "application/json"},
                         ],
@@ -217,9 +219,8 @@ def analyze_har_with_ai():
 
         # Generalization suggestions
         if analysis["generalization_suggestions"]:
-            print(
-                f"\n💡 GENERALIZATION SUGGESTIONS ({len(analysis['generalization_suggestions'])} found):"
-            )
+            suggestions_count = len(analysis["generalization_suggestions"])
+            print(f"\n💡 GENERALIZATION SUGGESTIONS ({suggestions_count} found):")
             for suggestion in analysis["generalization_suggestions"]:
                 print(f"  🔧 {suggestion['type'].replace('_', ' ').title()}")
                 print(f"     Description: {suggestion['description']}")
@@ -234,7 +235,7 @@ def analyze_har_with_ai():
         response_types = analysis["response_analysis"].get("inferred_types", {})
 
         if request_types or response_types:
-            print(f"\n📊 TYPE INFERENCE:")
+            print("\n📊 TYPE INFERENCE:")
             if request_types.get("body"):
                 print(f"  Request Body Type: {request_types['body']['type']}")
                 if "properties" in request_types["body"]:
@@ -272,23 +273,23 @@ def analyze_har_with_ai():
         for interaction in interactions
     )
 
-    print(f"📈 Analysis Summary:")
+    print("📈 Analysis Summary:")
     print(f"  • Interactions processed: {len(interactions)}")
     print(f"  • Security concerns found: {total_security_concerns}")
     print(f"  • Data patterns detected: {total_patterns}")
     print(f"  • Generalization suggestions: {total_suggestions}")
 
-    print(f"\n✅ AI processing complete! The system successfully:")
-    print(f"  • Identified sensitive data that should be masked or removed")
-    print(f"  • Detected data patterns for better type inference")
-    print(f"  • Suggested generalizations for reusable mock responses")
-    print(f"  • Inferred appropriate data types for OpenAPI schemas")
+    print("\n✅ AI processing complete! The system successfully:")
+    print("  • Identified sensitive data that should be masked or removed")
+    print("  • Detected data patterns for better type inference")
+    print("  • Suggested generalizations for reusable mock responses")
+    print("  • Inferred appropriate data types for OpenAPI schemas")
 
-    print(f"\n💡 Next steps:")
-    print(f"  • Review and act on security concerns")
-    print(f"  • Apply generalization suggestions to create better mocks")
-    print(f"  • Use type inference results for OpenAPI generation")
-    print(f"  • Integrate with existing HAR-to-OpenAPI and HAR-to-WireMock workflows")
+    print("\n💡 Next steps:")
+    print("  • Review and act on security concerns")
+    print("  • Apply generalization suggestions to create better mocks")
+    print("  • Use type inference results for OpenAPI generation")
+    print("  • Integrate with existing HAR-to-OpenAPI and HAR-to-WireMock workflows")
 
 
 if __name__ == "__main__":

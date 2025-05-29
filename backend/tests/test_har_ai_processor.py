@@ -4,13 +4,11 @@ from unittest.mock import Mock
 import pytest
 
 from app.services.har_ai_processor import (
-    DataPattern,
     GeneralizedData,
     HARDataGeneralizer,
     HARDataPatternRecognizer,
     HARDataProcessor,
     HARTypeInferencer,
-    SensitiveDataMatch,
 )
 from app.services.har_parser import APIInteraction, APIRequest, APIResponse
 
@@ -82,8 +80,12 @@ class TestHARDataPatternRecognizer:
 
     def test_detect_sensitive_jwt_token(self):
         """Test JWT token detection."""
-        text = "token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
-        matches = self.recognizer.detect_sensitive_data(text, "body")
+        jwt_token = (
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+            "eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ."
+            "SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+        )
+        matches = self.recognizer.detect_sensitive_data(jwt_token, "body")
 
         jwt_matches = [m for m in matches if m.data_type == "jwt_token"]
         assert len(jwt_matches) >= 1
