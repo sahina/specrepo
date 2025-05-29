@@ -282,7 +282,7 @@ Use the test scripts in the `scripts/` directory:
 
 The workflow automatically handles all notification types and provides comprehensive information for each event.
 
-## Configuration
+## Workflow Configuration
 
 ### Environment Variables
 

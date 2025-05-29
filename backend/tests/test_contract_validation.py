@@ -12,18 +12,8 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.models import (
-    APISpecification,
-    ContractValidation,
-    Environment,
-    User,
-    ValidationRun,
-)
-from app.schemas import (
-    AuthMethod,
-    ContractHealthStatus,
-    ContractValidationStatus,
-)
+from app.models import APISpecification, ContractValidation, Environment, User, ValidationRun
+from app.schemas import AuthMethod, ContractHealthStatus, ContractValidationStatus
 from app.services.contract_validation import (
     ContractHealthAnalyzer,
     ContractValidationService,
@@ -301,54 +291,171 @@ class TestContractValidationService:
             )
 
     @pytest.mark.asyncio
-    async def test_execute_contract_validation_success(
+    async def test_execute_contract_validation_with_notifications_success(
         self, contract_service, mock_db, sample_api_spec
     ):
-        """Test successful contract validation execution."""
-        # Mock contract validation
-        contract_validation = MagicMock(spec=ContractValidation)
-        contract_validation.id = 1
-        contract_validation.validation_run_id = 1
-        contract_validation.api_specification_id = 1
-        contract_validation.mock_configuration_id = None
-
-        mock_db.query.return_value.filter.return_value.first.side_effect = [
-            contract_validation,  # Contract validation query
-            sample_api_spec,  # API specification query
-        ]
-
-        # Mock validation run execution
-        mock_validation_run = MagicMock(spec=ValidationRun)
-        mock_validation_run.schemathesis_results = {
-            "total_tests": 5,
-            "passed_tests": 5,
-            "failed_tests": 0,
-            "errors": [],
-            "execution_time": 10,
-        }
-
-        contract_service.schemathesis_service.execute_validation_run = AsyncMock(
-            return_value=mock_validation_run
+        """Test contract validation execution with successful n8n notifications."""
+        # Create contract validation
+        contract_validation = ContractValidation(
+            id=1,
+            api_specification_id=sample_api_spec.id,
+            user_id=123,
+            status=ContractValidationStatus.PENDING.value,
+            triggered_at=datetime.now(),
+            validation_run_id=1,
         )
 
-        # Mock database operations
-        mock_db.commit = MagicMock()
-        mock_db.refresh = MagicMock()
+        # Mock validation run
+        validation_run = ValidationRun(
+            id=1,
+            api_specification_id=sample_api_spec.id,
+            user_id=123,
+            status="completed",
+            triggered_at=datetime.now(),
+            schemathesis_results={
+                "total_tests": 10,
+                "passed_tests": 9,
+                "failed_tests": 1,
+                "execution_time": 30,
+                "errors": [],
+            },
+        )
 
-        result = await contract_service.execute_contract_validation(mock_db, contract_validation.id)
+        # Setup database mocks
+        mock_db.query.return_value.filter.return_value.first.side_effect = [
+            contract_validation,  # First call for contract validation
+            sample_api_spec,  # Second call for API specification
+            None,  # Third call for mock configuration (None)
+        ]
 
-        assert result == contract_validation
-        assert contract_validation.status == ContractValidationStatus.COMPLETED.value
-        assert contract_validation.health_score > 0
-        assert contract_validation.contract_health_status is not None
+        # Mock schemathesis service
+        contract_service.schemathesis_service.execute_validation_run = AsyncMock(
+            return_value=validation_run
+        )
+
+        # Mock wiremock service for alignment check
+        contract_service.wiremock_service.get_all_stubs = AsyncMock(return_value=[])
+
+        # Mock n8n service
+        contract_service.n8n_service.send_contract_validation_completed = AsyncMock(
+            return_value=True
+        )
+
+        # Execute contract validation
+        result = await contract_service.execute_contract_validation(mock_db, 1)
+
+        # Verify contract validation completed successfully
+        assert result.status == ContractValidationStatus.COMPLETED.value
+        assert result.health_score is not None
+        assert result.contract_health_status is not None
+
+        # Verify n8n notification was sent
+        contract_service.n8n_service.send_contract_validation_completed.assert_called_once_with(
+            contract_validation, sample_api_spec
+        )
 
     @pytest.mark.asyncio
-    async def test_execute_contract_validation_not_found(self, contract_service, mock_db):
-        """Test contract validation execution when validation not found."""
-        mock_db.query.return_value.filter.return_value.first.return_value = None
+    async def test_execute_contract_validation_with_notifications_failure(
+        self, contract_service, mock_db, sample_api_spec
+    ):
+        """Test contract validation execution with n8n notifications on failure."""
+        # Create contract validation
+        contract_validation = ContractValidation(
+            id=1,
+            api_specification_id=sample_api_spec.id,
+            user_id=123,
+            status=ContractValidationStatus.PENDING.value,
+            triggered_at=datetime.now(),
+            validation_run_id=1,
+        )
 
-        with pytest.raises(ValueError, match="Contract validation not found"):
-            await contract_service.execute_contract_validation(mock_db, 999)
+        # Setup database mocks
+        mock_db.query.return_value.filter.return_value.first.side_effect = [
+            contract_validation,  # First call for contract validation
+            sample_api_spec,  # Second call for API specification (for notification)
+        ]
+
+        # Mock schemathesis service to raise an exception
+        contract_service.schemathesis_service.execute_validation_run = AsyncMock(
+            side_effect=Exception("Validation failed")
+        )
+
+        # Mock n8n service
+        contract_service.n8n_service.send_contract_validation_failed = AsyncMock(return_value=True)
+
+        # Execute contract validation and expect it to raise an exception
+        with pytest.raises(Exception, match="Validation failed"):
+            await contract_service.execute_contract_validation(mock_db, 1)
+
+        # Verify contract validation status was updated to failed
+        assert contract_validation.status == ContractValidationStatus.FAILED.value
+
+        # Verify n8n failure notification was sent
+        contract_service.n8n_service.send_contract_validation_failed.assert_called_once_with(
+            contract_validation, sample_api_spec
+        )
+
+    @pytest.mark.asyncio
+    async def test_execute_contract_validation_notification_failure_continues(
+        self, contract_service, mock_db, sample_api_spec
+    ):
+        """Test that contract validation continues even if notification fails."""
+        # Create contract validation
+        contract_validation = ContractValidation(
+            id=1,
+            api_specification_id=sample_api_spec.id,
+            user_id=123,
+            status=ContractValidationStatus.PENDING.value,
+            triggered_at=datetime.now(),
+            validation_run_id=1,
+        )
+
+        # Mock validation run
+        validation_run = ValidationRun(
+            id=1,
+            api_specification_id=sample_api_spec.id,
+            user_id=123,
+            status="completed",
+            triggered_at=datetime.now(),
+            schemathesis_results={
+                "total_tests": 10,
+                "passed_tests": 10,
+                "failed_tests": 0,
+                "execution_time": 20,
+                "errors": [],
+            },
+        )
+
+        # Setup database mocks
+        mock_db.query.return_value.filter.return_value.first.side_effect = [
+            contract_validation,  # First call for contract validation
+            sample_api_spec,  # Second call for API specification
+            None,  # Third call for mock configuration (None)
+        ]
+
+        # Mock schemathesis service
+        contract_service.schemathesis_service.execute_validation_run = AsyncMock(
+            return_value=validation_run
+        )
+
+        # Mock wiremock service for alignment check
+        contract_service.wiremock_service.get_all_stubs = AsyncMock(return_value=[])
+
+        # Mock n8n service that fails
+        contract_service.n8n_service.send_contract_validation_completed = AsyncMock(
+            side_effect=Exception("Notification failed")
+        )
+
+        # Execute contract validation - should succeed despite notification failure
+        result = await contract_service.execute_contract_validation(mock_db, 1)
+
+        # Verify contract validation completed successfully
+        assert result.status == ContractValidationStatus.COMPLETED.value
+        assert result.health_score is not None
+        assert result.contract_health_status is not None
+
+        # Verify notification was attempted
+        contract_service.n8n_service.send_contract_validation_completed.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_get_contract_validations(self, contract_service, mock_db):
