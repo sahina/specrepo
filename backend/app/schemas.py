@@ -433,3 +433,128 @@ class HARUploadListResponse(BaseModel):
     page: int
     size: int
     pages: int
+
+
+# HAR Processing Schemas
+class HARProcessingOptions(BaseModel):
+    """Schema for HAR processing options."""
+
+    api_title: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=100,
+        description="Title for the generated OpenAPI specification",
+    )
+    api_description: Optional[str] = Field(
+        None,
+        max_length=500,
+        description="Description for the generated OpenAPI specification",
+    )
+    api_version: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=20,
+        description="Version for the generated OpenAPI specification",
+    )
+    enable_ai_processing: Optional[bool] = Field(
+        default=True,
+        description="Enable AI-based data processing and generalization",
+    )
+    enable_data_generalization: Optional[bool] = Field(
+        default=True,
+        description="Enable data generalization for creating reusable mock responses",
+    )
+    wiremock_stateful: Optional[bool] = Field(
+        default=True,
+        description="Enable stateful behavior in WireMock stubs",
+    )
+    wiremock_templating: Optional[bool] = Field(
+        default=True,
+        description="Enable response templating in WireMock stubs",
+    )
+
+
+class HARProcessingStatus(str, Enum):
+    """HAR processing status enumeration."""
+
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class HARProcessingStepStatus(BaseModel):
+    """Schema for individual processing step status."""
+
+    status: str = Field(..., description="Status of the step")
+    progress: int = Field(..., ge=0, le=100, description="Progress percentage")
+    result: Optional[str] = Field(None, description="Result message")
+
+
+class HARProcessingStatusResponse(BaseModel):
+    """Schema for HAR processing status response."""
+
+    status: HARProcessingStatus
+    progress: int = Field(..., ge=0, le=100, description="Overall progress percentage")
+    current_step: Optional[str] = Field(None, description="Current processing step")
+    started_at: Optional[datetime] = Field(None, description="Processing start time")
+    completed_at: Optional[datetime] = Field(None, description="Processing completion time")
+    failed_at: Optional[datetime] = Field(None, description="Processing failure time")
+    error: Optional[str] = Field(None, description="Error message if failed")
+    artifacts_available: bool = Field(..., description="Whether artifacts are available")
+    interactions_count: Optional[int] = Field(None, description="Number of API interactions found")
+    openapi_paths_count: Optional[int] = Field(
+        None, description="Number of OpenAPI paths generated"
+    )
+    wiremock_stubs_count: Optional[int] = Field(
+        None, description="Number of WireMock stubs generated"
+    )
+    steps: Optional[Dict[str, HARProcessingStepStatus]] = Field(
+        None, description="Detailed step status information"
+    )
+
+
+class HARProcessingResponse(BaseModel):
+    """Schema for HAR processing initiation response."""
+
+    success: bool = Field(..., description="Whether processing was initiated successfully")
+    upload_id: int = Field(..., description="ID of the HAR upload being processed")
+    message: str = Field(..., description="Status message")
+    processing_status: Optional[HARProcessingStatusResponse] = Field(
+        None, description="Current processing status"
+    )
+
+
+class HARProcessingMetadata(BaseModel):
+    """Schema for HAR processing metadata."""
+
+    interactions_count: int = Field(..., description="Number of API interactions processed")
+    processed_interactions_count: int = Field(
+        ..., description="Number of successfully processed interactions"
+    )
+    openapi_paths_count: int = Field(..., description="Number of OpenAPI paths generated")
+    wiremock_stubs_count: int = Field(..., description="Number of WireMock stubs generated")
+    processed_at: datetime = Field(..., description="Processing completion timestamp")
+    processing_options: Dict[str, Any] = Field(..., description="Options used for processing")
+
+
+class HARProcessingArtifacts(BaseModel):
+    """Schema for HAR processing artifacts."""
+
+    openapi_specification: Dict[str, Any] = Field(
+        ..., description="Generated OpenAPI specification"
+    )
+    wiremock_mappings: List[Dict[str, Any]] = Field(
+        ..., description="Generated WireMock stub mappings"
+    )
+    processing_metadata: HARProcessingMetadata = Field(..., description="Processing metadata")
+
+
+class HARProcessingArtifactsResponse(BaseModel):
+    """Schema for HAR processing artifacts response."""
+
+    upload_id: int = Field(..., description="ID of the HAR upload")
+    file_name: str = Field(..., description="Name of the original HAR file")
+    artifacts: HARProcessingArtifacts = Field(..., description="Generated artifacts")
+    uploaded_at: datetime = Field(..., description="Upload timestamp")
+    processed_at: datetime = Field(..., description="Processing completion timestamp")

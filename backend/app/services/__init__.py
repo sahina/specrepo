@@ -10,6 +10,7 @@ from .har_ai_processor import (
     SensitiveDataMatch,
 )
 from .har_parser import APIInteraction, APIRequest, APIResponse, EndpointGroup, HARParser
+from .har_processing import HARProcessingService, ProcessingStatus, ProcessingStep
 from .har_to_wiremock import HARToWireMockService, HARToWireMockTransformer
 from .schemathesis_integration import (
     AuthenticationHandler,
@@ -36,11 +37,14 @@ __all__ = [
     "HARDataPatternRecognizer",
     "HARDataProcessor",
     "HARParser",
+    "HARProcessingService",
     "HARToWireMockService",
     "HARToWireMockTransformer",
     "HARTypeInferencer",
     "OpenAPIEndpoint",
     "OpenAPIParser",
+    "ProcessingStatus",
+    "ProcessingStep",
     "SchemathesisIntegrationService",
     "SensitiveDataMatch",
     "AuthenticationHandler",

@@ -2,8 +2,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List
 from urllib.parse import urlparse
 
 from dateutil import parser as date_parser
@@ -109,32 +108,38 @@ class HARDataPatternRecognizer:
     # Sensitive data patterns
     SENSITIVE_PATTERNS = {
         "api_key": {
-            "regex": r'(?i)(api[_-]?key|apikey|access[_-]?token|secret[_-]?key)\s*[:=]\s*["\']?([a-zA-Z0-9_-]{20,})["\']?',
+            "regex": (
+                r"(?i)(api[_-]?key|apikey|access[_-]?token|secret[_-]?key)\s*[:=]\s*"
+                r'["\']?([a-zA-Z0-9_-]{20,})["\']?'
+            ),
             "replacement": "[REDACTED_API_KEY]",
             "confidence": 0.9,
         },
         "bearer_token": {
             "regex": r"(?i)bearer\s+([a-zA-Z0-9_-]{20,})",
-            "replacement": "Bearer [REDACTED_TOKEN]",
+            "replacement": "[REDACTED_BEARER_TOKEN]",
             "confidence": 0.95,
         },
         "jwt_token": {
-            "regex": r"eyJ[a-zA-Z0-9_-]*\.eyJ[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*",
-            "replacement": "[REDACTED_JWT]",
+            "regex": r"(?i)eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+",
+            "replacement": "[REDACTED_JWT_TOKEN]",
+            "confidence": 0.98,
+        },
+        "credit_card": {
+            "regex": r"\b(?:\d{4}[-\s]?){3}\d{4}\b",
+            "replacement": "[REDACTED_CREDIT_CARD]",
             "confidence": 0.9,
         },
-        "password": {
-            "regex": r'(?i)(password|passwd|pwd)\s*[:=]\s*["\']?([^"\'\s]{6,})["\']?',
-            "replacement": "[REDACTED_PASSWORD]",
-            "confidence": 0.8,
-        },
-        "authorization_header": {
-            "regex": r"(?i)authorization\s*:\s*(.+)",
-            "replacement": "Authorization: [REDACTED]",
+        "ssn": {
+            "regex": r"\b\d{3}-\d{2}-\d{4}\b",
+            "replacement": "[REDACTED_SSN]",
             "confidence": 0.95,
         },
         "session_id": {
-            "regex": r'(?i)(session[_-]?id|sessionid|jsessionid)\s*[:=]\s*["\']?([a-zA-Z0-9_-]{10,})["\']?',
+            "regex": (
+                r"(?i)(session[_-]?id|sessionid|jsessionid)\s*[:=]\s*"
+                r'["\']?([a-zA-Z0-9_-]{10,})["\']?'
+            ),
             "replacement": "[REDACTED_SESSION]",
             "confidence": 0.85,
         },
@@ -226,12 +231,13 @@ class HARDataPatternRecognizer:
             # Lower confidence for numeric IDs as they could be other numbers
             return 0.6
         elif pattern_type in ["iso_date", "simple_date"]:
-            # Validate date format
-            try:
-                date_parser.parse(value)
-                return 0.9
-            except:
-                return 0.5
+            # Check if it looks like a date
+            if any(pattern in value.lower() for pattern in ["date", "time", "created", "updated"]):
+                try:
+                    date_parser.parse(value)
+                    return 0.9
+                except (ValueError, TypeError):
+                    return 0.5
 
         return base_confidence
 
@@ -731,8 +737,10 @@ class HARDataProcessor:
     def _get_security_recommendation(self, data_type: str) -> str:
         """Get security recommendation for data type."""
         recommendations = {
-            "api_key": "Remove API keys from HAR files and use environment variables or secure vaults",
-            "bearer_token": "Replace bearer tokens with placeholder values in mock responses",
+            "api_key": (
+                "Remove API keys from HAR files and use environment variables or secure vaults"
+            ),
+            "bearer_token": ("Replace bearer tokens with placeholder values in mock responses"),
             "jwt_token": "Use mock JWT tokens for testing, never expose real tokens",
             "password": "Never include passwords in API documentation or mock data",
             "credit_card": "Use test credit card numbers for mock responses",
