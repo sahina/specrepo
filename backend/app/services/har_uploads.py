@@ -4,7 +4,7 @@ from io import StringIO
 from typing import List, Optional, Tuple
 
 import harfile
-from sqlalchemy import and_, desc, func
+from sqlalchemy import and_, desc
 from sqlalchemy.orm import Session
 
 from app.models import HARUpload, User

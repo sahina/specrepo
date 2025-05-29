@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.api_key import create_user_with_api_key
 from app.db.session import get_db
-from app.models import HARUpload, User
+from app.models import User
 from main import app
 
 # Create a test client that will be configured with database override
