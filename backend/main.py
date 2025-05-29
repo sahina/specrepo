@@ -12,6 +12,7 @@ from app.middleware import RateLimitMiddleware
 from app.models import User
 from app.routers import (
     api_specifications,
+    contract_validations,
     environments,
     har_uploads,
     mocks,
@@ -47,6 +48,7 @@ app.add_middleware(RateLimitMiddleware, max_attempts=5, window_seconds=300)
 
 # Include routers
 app.include_router(api_specifications.router)
+app.include_router(contract_validations.router)  # Task 32 endpoints
 app.include_router(environments.router)
 app.include_router(har_uploads.router)
 app.include_router(mocks.router)

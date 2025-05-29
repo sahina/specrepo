@@ -1,4 +1,4 @@
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -19,6 +19,7 @@ class User(Base):
     har_uploads = relationship("HARUpload", back_populates="uploader")
     validation_runs = relationship("ValidationRun", back_populates="trigger_user")
     environments = relationship("Environment", back_populates="owner")
+    contract_validations = relationship("ContractValidation", back_populates="trigger_user")
 
 
 class APISpecification(Base):
@@ -35,6 +36,7 @@ class APISpecification(Base):
     owner = relationship("User", back_populates="api_specifications")
     mock_configurations = relationship("MockConfiguration", back_populates="api_specification")
     validation_runs = relationship("ValidationRun", back_populates="api_specification")
+    contract_validations = relationship("ContractValidation", back_populates="api_specification")
 
 
 class Environment(Base):
@@ -54,6 +56,7 @@ class Environment(Base):
 
     owner = relationship("User", back_populates="environments")
     validation_runs = relationship("ValidationRun", back_populates="environment")
+    contract_validations = relationship("ContractValidation", back_populates="environment")
 
 
 class HARUpload(Base):
@@ -103,6 +106,41 @@ class ValidationRun(Base):
     api_specification = relationship("APISpecification", back_populates="validation_runs")
     trigger_user = relationship("User", back_populates="validation_runs")
     environment = relationship("Environment", back_populates="validation_runs")
+
+
+class ContractValidation(Base):
+    __tablename__ = "contract_validations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    api_specification_id = Column(Integer, ForeignKey("api_specifications.id"), nullable=False)
+    environment_id = Column(Integer, ForeignKey("environments.id"), nullable=True)
+    provider_url = Column(String, nullable=False)
+
+    # Validation results
+    validation_run_id = Column(Integer, ForeignKey("validation_runs.id"), nullable=False)
+    mock_configuration_id = Column(Integer, ForeignKey("mock_configurations.id"), nullable=True)
+
+    # Contract health metrics
+    contract_health_status = Column(String, nullable=False)  # 'healthy', 'degraded', 'broken'
+    health_score = Column(Float, nullable=False)  # 0.0 to 1.0
+
+    # Detailed results
+    producer_validation_results = Column(JSON)  # Schemathesis results
+    mock_alignment_results = Column(JSON)  # Mock alignment check results
+    validation_summary = Column(JSON)  # Overall summary and recommendations
+
+    # Metadata
+    status = Column(String, default="pending")  # 'pending', 'running', 'completed', 'failed'
+    triggered_at = Column(DateTime(timezone=True), server_default=func.now())
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    # Relationships
+    api_specification = relationship("APISpecification", back_populates="contract_validations")
+    environment = relationship("Environment", back_populates="contract_validations")
+    trigger_user = relationship("User", back_populates="contract_validations")
+    validation_run = relationship("ValidationRun")
+    mock_configuration = relationship("MockConfiguration")
 
 
 # Ensure all models are imported here so Alembic can find them.
