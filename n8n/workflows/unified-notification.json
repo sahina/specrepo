@@ -35,6 +35,18 @@
             {
               "value2": "validation_failed",
               "output": 3
+            },
+            {
+              "value2": "har_processing_completed",
+              "output": 4
+            },
+            {
+              "value2": "har_processing_failed",
+              "output": 5
+            },
+            {
+              "value2": "har_review_requested",
+              "output": 6
             }
           ]
         }
@@ -103,6 +115,48 @@
     },
     {
       "parameters": {
+        "fromEmail": "noreply@specrepo.com",
+        "toEmail": "altug@aecoffice.com",
+        "subject": "🎉 HAR Processing Completed: {{ $json.file_name }}",
+        "text": "Hello,\n\nHAR file processing has completed successfully:\n\n📋 **Processing Details:**\n- File Name: {{ $json.file_name }}\n- Upload ID: {{ $json.upload_id }}\n- User ID: {{ $json.user_id }}\n- Status: {{ $json.processing_status }}\n- Timestamp: {{ $json.timestamp }}\n\n📊 **Processing Statistics:**\n- Interactions Found: {{ $json.processing_statistics.interactions_count }}\n- Processed Interactions: {{ $json.processing_statistics.processed_interactions_count }}\n- OpenAPI Paths Generated: {{ $json.processing_statistics.openapi_paths_count }}\n- WireMock Stubs Generated: {{ $json.processing_statistics.wiremock_stubs_count }}\n- Processing Progress: {{ $json.processing_statistics.processing_progress }}%\n\n🔧 **Generated Artifacts:**\n- OpenAPI Specification: {{ $json.artifacts_summary.openapi_available ? '✅ Available' : '❌ Not Available' }}\n- WireMock Mappings: {{ $json.artifacts_summary.wiremock_available ? '✅ Available' : '❌ Not Available' }}\n{{#if $json.artifacts_summary.openapi_available}}\n- API Title: {{ $json.artifacts_summary.openapi_title }}\n- API Version: {{ $json.artifacts_summary.openapi_version }}\n{{/if}}\n\n🔗 **Quick Actions:**\n- View HAR Upload: http://localhost:5173/har-uploads/{{ $json.upload_id }}\n- Download Artifacts: http://localhost:5173/har-uploads/{{ $json.upload_id }}/artifacts\n- API Documentation: http://localhost:8000/docs\n\nYour HAR file has been successfully processed and API specifications are ready for use!\n\nBest regards,\nSpecRepo HAR Processing System",
+        "options": {}
+      },
+      "id": "send-har-completed-email",
+      "name": "Send HAR Completed Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [680, 700]
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@specrepo.com",
+        "toEmail": "altug@aecoffice.com",
+        "subject": "❌ HAR Processing Failed: {{ $json.file_name }}",
+        "text": "Hello,\n\nHAR file processing has failed:\n\n📋 **Processing Details:**\n- File Name: {{ $json.file_name }}\n- Upload ID: {{ $json.upload_id }}\n- User ID: {{ $json.user_id }}\n- Status: {{ $json.processing_status }}\n- Timestamp: {{ $json.timestamp }}\n\n❌ **Error Information:**\n- Error Message: {{ $json.error_message || 'Unknown error occurred' }}\n\n📊 **Processing Statistics:**\n- Interactions Found: {{ $json.processing_statistics.interactions_count || 0 }}\n- Processing Progress: {{ $json.processing_statistics.processing_progress || 0 }}%\n- Steps Completed: {{ $json.processing_statistics.processing_steps_completed || 0 }}/{{ $json.processing_statistics.total_processing_steps || 0 }}\n\n🔗 **Quick Actions:**\n- View HAR Upload: http://localhost:5173/har-uploads/{{ $json.upload_id }}\n- Try Processing Again: http://localhost:5173/har-uploads/{{ $json.upload_id }}/reprocess\n- Contact Support: http://localhost:5173/support\n- API Documentation: http://localhost:8000/docs\n\n⚠️ **Important:** Please check the HAR file format and try processing again. If the issue persists, contact support.\n\nBest regards,\nSpecRepo HAR Processing System",
+        "options": {}
+      },
+      "id": "send-har-failed-email",
+      "name": "Send HAR Failed Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [680, 800]
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@specrepo.com",
+        "toEmail": "altug@aecoffice.com",
+        "subject": "🔍 HAR Artifacts Review Requested: {{ $json.file_name }}",
+        "text": "Hello,\n\nA review has been requested for AI-generated HAR processing artifacts:\n\n📋 **Review Details:**\n- File Name: {{ $json.file_name }}\n- Upload ID: {{ $json.upload_id }}\n- User ID: {{ $json.user_id }}\n- Timestamp: {{ $json.timestamp }}\n\n🔧 **Generated Artifacts Summary:**\n- OpenAPI Specification: {{ $json.artifacts_summary.openapi_available ? '✅ Generated' : '❌ Not Generated' }}\n- WireMock Mappings: {{ $json.artifacts_summary.wiremock_available ? '✅ Generated' : '❌ Not Generated' }}\n{{#if $json.artifacts_summary.openapi_available}}\n- API Title: {{ $json.artifacts_summary.openapi_title }}\n- API Version: {{ $json.artifacts_summary.openapi_version }}\n- Paths Count: {{ $json.artifacts_summary.openapi_paths_count }}\n{{/if}}\n{{#if $json.artifacts_summary.wiremock_available}}\n- WireMock Stubs Count: {{ $json.artifacts_summary.wiremock_stubs_count }}\n{{/if}}\n\n📊 **Processing Statistics:**\n- Interactions Processed: {{ $json.processing_statistics.processed_interactions_count }}\n- AI Processing Applied: {{ $json.processing_statistics.processing_options.enable_ai_processing ? 'Yes' : 'No' }}\n- Data Generalization: {{ $json.processing_statistics.processing_options.enable_data_generalization ? 'Yes' : 'No' }}\n\n🔗 **Review Actions:**\n- Review Artifacts: {{ $json.review_url }}\n- View HAR Upload: http://localhost:5173/har-uploads/{{ $json.upload_id }}\n- Download Artifacts: http://localhost:5173/har-uploads/{{ $json.upload_id }}/artifacts\n- API Documentation: http://localhost:8000/docs\n\n⚠️ **Important:** Please review the AI-generated artifacts for accuracy and completeness. Approve or request modifications as needed.\n\nBest regards,\nSpecRepo Review System",
+        "options": {}
+      },
+      "id": "send-har-review-email",
+      "name": "Send HAR Review Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [680, 900]
+    },
+    {
+      "parameters": {
         "respondWith": "json",
         "responseBody": "{\n  \"status\": \"success\",\n  \"message\": \"Notification processed successfully\",\n  \"event_type\": \"{{ $json.event_type }}\",\n  \"timestamp\": \"{{ new Date().toISOString() }}\"\n}"
       },
@@ -154,6 +208,27 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Send HAR Completed Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send HAR Failed Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send HAR Review Email",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -200,6 +275,39 @@
           }
         ]
       ]
+    },
+    "Send HAR Completed Email": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send HAR Failed Email": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send HAR Review Email": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
@@ -213,8 +321,7 @@
     {
       "createdAt": "2024-01-01T00:00:00.000Z",
       "updatedAt": "2024-01-01T00:00:00.000Z",
-      "id": "unified-notifications",
-      "name": "Unified Notifications"
+      "name": "specrepo"
     }
   ]
 }

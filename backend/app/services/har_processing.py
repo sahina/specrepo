@@ -11,6 +11,7 @@ from app.services.har_parser import HARParser
 from app.services.har_to_openapi import HARToOpenAPITransformer
 from app.services.har_to_wiremock import HARToWireMockTransformer
 from app.services.har_uploads import HARUploadService
+from app.services.n8n_notifications import n8n_service
 
 logger = logging.getLogger(__name__)
 
@@ -221,12 +222,41 @@ class HARProcessingService:
 
             logger.info(f"HAR processing completed successfully for upload {upload_id}")
 
-            return {
+            # Prepare result for notifications
+            result = {
                 "success": True,
                 "upload_id": upload_id,
                 "processing_status": processing_status,
                 "artifacts": artifacts,
             }
+
+            # Send n8n notifications
+            try:
+                # Send user notification (HAR processed & sketches ready)
+                await n8n_service.send_har_processing_completed(
+                    upload_id=upload_id,
+                    file_name=upload.file_name,
+                    user_id=user.id,
+                    processing_result=result,
+                )
+
+                # Send reviewer notification (review request for AI-generated artifacts)
+                # Generate review URL for the artifacts
+                review_url = f"http://localhost:5173/har-uploads/{upload_id}/review"
+                await n8n_service.send_har_review_requested(
+                    upload_id=upload_id,
+                    file_name=upload.file_name,
+                    user_id=user.id,
+                    processing_result=result,
+                    review_url=review_url,
+                )
+
+                logger.info(f"Successfully sent n8n notifications for HAR upload {upload_id}")
+            except Exception as e:
+                logger.warning(f"Failed to send n8n notifications for HAR upload {upload_id}: {e}")
+                # Don't fail the entire processing if notifications fail
+
+            return result
 
         except Exception as e:
             logger.error(f"HAR processing failed for upload {upload_id}: {e}")
@@ -236,12 +266,33 @@ class HARProcessingService:
             processing_status["error"] = str(e)
             processing_status["failed_at"] = datetime.now().isoformat()
 
-            return {
+            # Prepare result for notifications
+            result = {
                 "success": False,
                 "upload_id": upload_id,
                 "processing_status": processing_status,
                 "error": str(e),
             }
+
+            # Send failure notification
+            try:
+                await n8n_service.send_har_processing_failed(
+                    upload_id=upload_id,
+                    file_name=upload.file_name,
+                    user_id=user.id,
+                    processing_result=result,
+                )
+                logger.info(
+                    f"Successfully sent n8n failure notification for HAR upload {upload_id}"
+                )
+            except Exception as notification_error:
+                logger.warning(
+                    f"Failed to send n8n failure notification for HAR upload {upload_id}: "
+                    f"{notification_error}"
+                )
+                # Don't fail the entire processing if notifications fail
+
+            return result
 
     def get_processing_status(
         self, db: Session, upload_id: int, user: User

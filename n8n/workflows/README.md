@@ -18,6 +18,9 @@ The SpecRepo platform uses a **single unified notification workflow** (`unified-
 - `updated` - When an existing API specification is updated  
 - `validation_completed` - When a validation run completes successfully
 - `validation_failed` - When a validation run fails or is cancelled
+- `har_processing_completed` - When HAR file processing completes successfully
+- `har_processing_failed` - When HAR file processing fails
+- `har_review_requested` - When review is requested for AI-generated HAR artifacts
 
 ### Payload Structures
 
@@ -66,26 +69,121 @@ The SpecRepo platform uses a **single unified notification workflow** (`unified-
 }
 ```
 
+#### HAR Processing Events (`har_processing_completed`, `har_processing_failed`)
+
+```json
+{
+  "event_type": "har_processing_completed|har_processing_failed",
+  "upload_id": 123,
+  "file_name": "example.har",
+  "user_id": 456,
+  "timestamp": "2023-01-01T00:00:00",
+  "processing_status": "completed|failed",
+  "processing_statistics": {
+    "interactions_count": 25,
+    "processed_interactions_count": 23,
+    "openapi_paths_count": 8,
+    "wiremock_stubs_count": 23,
+    "processing_steps_completed": 5,
+    "total_processing_steps": 5,
+    "processing_progress": 100,
+    "processing_options": {
+      "enable_ai_processing": true,
+      "enable_data_generalization": true
+    }
+  },
+  "artifacts_summary": {
+    "openapi_available": true,
+    "openapi_title": "Generated API",
+    "openapi_version": "1.0.0",
+    "openapi_paths_count": 8,
+    "wiremock_available": true,
+    "wiremock_stubs_count": 23,
+    "artifacts_generated_at": "2023-01-01T00:00:00"
+  },
+  "error_message": "Error details (only for failed events)"
+}
+```
+
+#### HAR Review Request Events (`har_review_requested`)
+
+```json
+{
+  "event_type": "har_review_requested",
+  "upload_id": 123,
+  "file_name": "example.har",
+  "user_id": 456,
+  "timestamp": "2023-01-01T00:00:00",
+  "artifacts_summary": {
+    "openapi_available": true,
+    "openapi_title": "Generated API",
+    "openapi_version": "1.0.0",
+    "openapi_paths_count": 8,
+    "wiremock_available": true,
+    "wiremock_stubs_count": 23,
+    "artifacts_generated_at": "2023-01-01T00:00:00"
+  },
+  "review_url": "http://localhost:5173/har-uploads/123/review",
+  "processing_statistics": {
+    "interactions_count": 25,
+    "processed_interactions_count": 23,
+    "processing_options": {
+      "enable_ai_processing": true,
+      "enable_data_generalization": true
+    }
+  }
+}
+```
+
 ### Workflow Architecture
 
-The unified workflow uses a **Switch node** to route incoming webhooks to the appropriate email template based on the `event_type`:
+The workflow uses a **switch node** to route incoming webhooks based on the `event_type` field:
 
-1. **Webhook Trigger** - Receives all notifications at `/notification`
-2. **Route by Event Type** - Switch node that routes based on `event_type`
-3. **Email Nodes** - Four specialized email templates:
-   - Spec Created Email (for `created` events)
-   - Spec Updated Email (for `updated` events)
-   - Validation Completed Email (for `validation_completed` events)
-   - Validation Failed Email (for `validation_failed` events)
-4. **Webhook Response** - Returns success confirmation
+1. **Webhook Trigger** - Receives POST requests at `/notification`
+2. **Route by Event Type** - Switch node that routes to appropriate email handler
+3. **Email Nodes** - Send formatted emails for each event type:
+   - `Send Spec Created Email` - For API specification creation
+   - `Send Spec Updated Email` - For API specification updates
+   - `Send Validation Completed Email` - For successful validations
+   - `Send Validation Failed Email` - For failed validations
+   - `Send HAR Completed Email` - For successful HAR processing
+   - `Send HAR Failed Email` - For failed HAR processing
+   - `Send HAR Review Email` - For HAR artifact review requests
+4. **Webhook Response** - Returns success response to caller
 
-### Benefits of Unified Approach
+### Email Templates
 
-- **Single webhook endpoint** to configure and maintain
-- **Consistent routing logic** for all notification types
-- **Easy to extend** with new event types
-- **Simplified configuration** - only one workflow to import and activate
-- **Better maintainability** - changes to common logic affect all notifications
+Each event type has a customized email template that includes:
+
+- **HAR Processing Completed**: Processing statistics, artifact summary, download links
+- **HAR Processing Failed**: Error details, partial statistics, retry options
+- **HAR Review Requested**: Artifact details, review links, processing context
+
+### Configuration
+
+The workflow is configured to:
+
+- Accept webhooks at `http://n8n:5678/webhook-test/notification`
+- Send emails to `altug@aecoffice.com` (configurable)
+- Include rich formatting with emojis and structured information
+- Provide direct links to relevant platform pages
+
+### Setup Instructions
+
+1. Import the workflow JSON file into your n8n instance
+2. Configure SMTP settings for email sending
+3. Update email recipients as needed
+4. Activate the workflow
+5. Test with the provided webhook endpoints
+
+### Testing
+
+Use the test scripts in the `scripts/` directory:
+
+- `test_n8n_webhook.py` - Manual webhook testing
+- `setup_n8n_workflow.py` - Automated workflow setup and testing
+
+The workflow automatically handles all notification types and provides comprehensive information for each event.
 
 ## Configuration
 
