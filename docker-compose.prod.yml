@@ -1,5 +1,5 @@
-# Development Docker Compose Configuration
-# Use this for local development with hot reloading and development tools
+# Production Docker Compose Configuration
+# Use this for production deployments with optimized containers
 version: "3.8"
 
 services:
@@ -7,12 +7,9 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-      target: builder # Use builder stage for development with all tools
+      target: production
     ports:
       - "8000:8000"
-    volumes:
-      - ./backend:/app
-      - backend_cache:/app/.venv # Cache virtual environment
     environment:
       # Database Configuration
       - DATABASE_URL=postgresql://user:password@postgres:5432/appdb
@@ -22,59 +19,64 @@ services:
 
       # n8n Integration
       - N8N_WEBHOOK_URL=http://n8n:5678/webhook/notification
-      - N8N_WEBHOOK_SECRET=specrepo-n8n-secret-2024
+      - N8N_WEBHOOK_SECRET=${N8N_WEBHOOK_SECRET:-specrepo-n8n-secret-2024}
       - N8N_MAX_RETRIES=3
       - N8N_RETRY_DELAY_SECONDS=5
       - N8N_TIMEOUT_SECONDS=30
 
-      # Development Configuration
-      - LOG_LEVEL=DEBUG
-      - RATE_LIMIT_MAX_ATTEMPTS=1000 # Higher limits for development
-      - RATE_LIMIT_WINDOW_SECONDS=3600
+      # API Configuration
+      - RATE_LIMIT_MAX_ATTEMPTS=${RATE_LIMIT_MAX_ATTEMPTS:-100}
+      - RATE_LIMIT_WINDOW_SECONDS=${RATE_LIMIT_WINDOW_SECONDS:-3600}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - app-network
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 40s
-    command:
-      [
-        "uv",
-        "run",
-        "--frozen",
-        "uvicorn",
-        "main:app",
-        "--host",
-        "0.0.0.0",
-        "--port",
-        "8000",
-        "--reload",
-      ]
 
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
+      target: production
     ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend:/app
-      - frontend_node_modules:/app/node_modules # Use named volume for node_modules
+      - "8080:8080"
     environment:
-      - NODE_ENV=development
-      - CHOKIDAR_USEPOLLING=true # For hot-reloading in Docker
-      - VITE_API_URL=http://localhost:8000
+      - NODE_ENV=production
     depends_on:
       - backend
     networks:
       - app-network
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   postgres:
     image: postgres:15-alpine
@@ -84,15 +86,27 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     environment:
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=appdb
+      - POSTGRES_USER=${POSTGRES_USER:-user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+      - POSTGRES_DB=${POSTGRES_DB:-appdb}
       - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
     networks:
       - app-network
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d appdb"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-appdb}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -103,11 +117,20 @@ services:
     ports:
       - "8081:8080"
     volumes:
-      - ./wiremock/mappings:/home/wiremock/mappings
-      - ./wiremock/files:/home/wiremock/__files
+      - ./wiremock/mappings:/home/wiremock/mappings:ro
+      - ./wiremock/files:/home/wiremock/__files:ro
+      - wiremock_data:/home/wiremock/data
     networks:
       - app-network
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
     command:
       ["--verbose", "--global-response-templating", "--enable-browser-proxying"]
     healthcheck:
@@ -133,16 +156,33 @@ services:
       - n8n_data:/home/node/.n8n
       - ./n8n/workflows:/home/node/workflows:ro
     environment:
-      - GENERIC_TIMEZONE=America/New_York
-      - N8N_API_KEY=specrepo-n8n-api-key-2024
+      - GENERIC_TIMEZONE=${TIMEZONE:-UTC}
+      - N8N_API_KEY=${N8N_API_KEY:-specrepo-n8n-api-key-2024}
       - N8N_DISABLE_UI=false
       - N8N_BASIC_AUTH_ACTIVE=false
       - N8N_WEBHOOK_URL=http://localhost:5679/
       - N8N_SECURE_COOKIE=false
-      - N8N_LOG_LEVEL=debug # More verbose logging for development
+      - N8N_LOG_LEVEL=${N8N_LOG_LEVEL:-info}
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${N8N_DB_NAME:-n8n}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER:-user}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-password}
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - app-network
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
     healthcheck:
       test:
         [
@@ -163,11 +203,12 @@ volumes:
     driver: local
   n8n_data:
     driver: local
-  frontend_node_modules:
-    driver: local
-  backend_cache:
+  wiremock_data:
     driver: local
 
 networks:
   app-network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
