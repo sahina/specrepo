@@ -38,6 +38,33 @@ class N8nValidationWebhookPayload(BaseModel):
     validation_statistics: Dict
 
 
+class N8nHARProcessingWebhookPayload(BaseModel):
+    """Pydantic model for n8n HAR processing webhook payload."""
+
+    event_type: str  # "har_processing_completed" or "har_processing_failed"
+    upload_id: int
+    file_name: str
+    user_id: int
+    timestamp: str
+    processing_status: str  # "completed" or "failed"
+    processing_statistics: Dict
+    artifacts_summary: Optional[Dict]
+    error_message: Optional[str] = None
+
+
+class N8nHARReviewWebhookPayload(BaseModel):
+    """Pydantic model for n8n HAR review request webhook payload."""
+
+    event_type: str  # "har_review_requested"
+    upload_id: int
+    file_name: str
+    user_id: int
+    timestamp: str
+    artifacts_summary: Dict
+    review_url: str
+    processing_statistics: Dict
+
+
 class N8nNotificationService:
     """Service for sending notifications to n8n webhooks."""
 
@@ -178,19 +205,183 @@ class N8nNotificationService:
 
         return await self._send_validation_webhook(payload, "validation_failed")
 
-    def _extract_validation_statistics(
-        self, schemathesis_results: Optional[Dict]
-    ) -> Dict:
+    async def send_har_processing_completed(
+        self, upload_id: int, file_name: str, user_id: int, processing_result: Dict
+    ) -> bool:
         """
-        Extract key validation statistics from Schemathesis results.
+        Send notification when HAR processing completes successfully.
 
         Args:
-            schemathesis_results: The raw Schemathesis results
+            upload_id: ID of the HAR upload
+            file_name: Name of the processed HAR file
+            user_id: ID of the user who owns the upload
+            processing_result: Result dictionary from HAR processing
 
         Returns:
-            Dictionary containing key validation statistics
+            True if notification was sent successfully, False otherwise
         """
-        if not schemathesis_results:
+        if not self.is_enabled():
+            logger.debug("n8n notifications disabled - no webhook URL configured")
+            return True
+
+        # Extract processing statistics and artifacts summary
+        processing_statistics = self._extract_har_processing_statistics(processing_result)
+        artifacts_summary = self._extract_har_artifacts_summary(processing_result)
+
+        payload = N8nHARProcessingWebhookPayload(
+            event_type="har_processing_completed",
+            upload_id=upload_id,
+            file_name=file_name,
+            user_id=user_id,
+            timestamp=processing_result.get("processing_status", {}).get("completed_at", ""),
+            processing_status="completed",
+            processing_statistics=processing_statistics,
+            artifacts_summary=artifacts_summary,
+        )
+
+        return await self._send_har_webhook(payload, "har_processing_completed")
+
+    async def send_har_processing_failed(
+        self, upload_id: int, file_name: str, user_id: int, processing_result: Dict
+    ) -> bool:
+        """
+        Send notification when HAR processing fails.
+
+        Args:
+            upload_id: ID of the HAR upload
+            file_name: Name of the processed HAR file
+            user_id: ID of the user who owns the upload
+            processing_result: Result dictionary from HAR processing
+
+        Returns:
+            True if notification was sent successfully, False otherwise
+        """
+        if not self.is_enabled():
+            logger.debug("n8n notifications disabled - no webhook URL configured")
+            return True
+
+        # Extract processing statistics (may be limited for failed runs)
+        processing_statistics = self._extract_har_processing_statistics(processing_result)
+
+        payload = N8nHARProcessingWebhookPayload(
+            event_type="har_processing_failed",
+            upload_id=upload_id,
+            file_name=file_name,
+            user_id=user_id,
+            timestamp=processing_result.get("processing_status", {}).get("failed_at", ""),
+            processing_status="failed",
+            processing_statistics=processing_statistics,
+            artifacts_summary=None,
+            error_message=processing_result.get("error", "Unknown error"),
+        )
+
+        return await self._send_har_webhook(payload, "har_processing_failed")
+
+    async def send_har_review_requested(
+        self, upload_id: int, file_name: str, user_id: int, processing_result: Dict, review_url: str
+    ) -> bool:
+        """
+        Send notification requesting review of AI-generated HAR artifacts.
+
+        Args:
+            upload_id: ID of the HAR upload
+            file_name: Name of the processed HAR file
+            user_id: ID of the user who owns the upload
+            processing_result: Result dictionary from HAR processing
+            review_url: URL for reviewing the generated artifacts
+
+        Returns:
+            True if notification was sent successfully, False otherwise
+        """
+        if not self.is_enabled():
+            logger.debug("n8n notifications disabled - no webhook URL configured")
+            return True
+
+        # Extract processing statistics and artifacts summary
+        processing_statistics = self._extract_har_processing_statistics(processing_result)
+        artifacts_summary = self._extract_har_artifacts_summary(processing_result)
+
+        payload = N8nHARReviewWebhookPayload(
+            event_type="har_review_requested",
+            upload_id=upload_id,
+            file_name=file_name,
+            user_id=user_id,
+            timestamp=processing_result.get("processing_status", {}).get("completed_at", ""),
+            artifacts_summary=artifacts_summary,
+            review_url=review_url,
+            processing_statistics=processing_statistics,
+        )
+
+        return await self._send_har_review_webhook(payload, "har_review_requested")
+
+    def _extract_har_processing_statistics(self, processing_result: Dict) -> Dict:
+        """
+        Extract processing statistics from HAR processing result.
+
+        Args:
+            processing_result: Result dictionary from HAR processing
+
+        Returns:
+            Dictionary containing processing statistics
+        """
+        artifacts = processing_result.get("artifacts", {})
+        metadata = artifacts.get("processing_metadata", {})
+        processing_status = processing_result.get("processing_status", {})
+
+        return {
+            "interactions_count": metadata.get("interactions_count", 0),
+            "processed_interactions_count": metadata.get("processed_interactions_count", 0),
+            "openapi_paths_count": metadata.get("openapi_paths_count", 0),
+            "wiremock_stubs_count": metadata.get("wiremock_stubs_count", 0),
+            "processing_steps_completed": len(
+                [
+                    step
+                    for step in processing_status.get("steps", {}).values()
+                    if step.get("status") == "completed"
+                ]
+            ),
+            "total_processing_steps": len(processing_status.get("steps", {})),
+            "processing_progress": processing_status.get("progress", 0),
+            "processing_options": metadata.get("processing_options", {}),
+        }
+
+    def _extract_har_artifacts_summary(self, processing_result: Dict) -> Dict:
+        """
+        Extract artifacts summary from HAR processing result.
+
+        Args:
+            processing_result: Result dictionary from HAR processing
+
+        Returns:
+            Dictionary containing artifacts summary
+        """
+        artifacts = processing_result.get("artifacts", {})
+        openapi_spec = artifacts.get("openapi_specification", {})
+        wiremock_mappings = artifacts.get("wiremock_mappings", [])
+
+        return {
+            "openapi_available": bool(openapi_spec),
+            "openapi_title": openapi_spec.get("info", {}).get("title", ""),
+            "openapi_version": openapi_spec.get("info", {}).get("version", ""),
+            "openapi_paths_count": len(openapi_spec.get("paths", {})),
+            "wiremock_available": bool(wiremock_mappings),
+            "wiremock_stubs_count": len(wiremock_mappings),
+            "artifacts_generated_at": artifacts.get("processing_metadata", {}).get(
+                "processed_at", ""
+            ),
+        }
+
+    def _extract_validation_statistics(self, validation_results: Optional[Dict]) -> Dict:
+        """
+        Extract validation statistics from Schemathesis results.
+
+        Args:
+            validation_results: Raw validation results from Schemathesis
+
+        Returns:
+            Dictionary containing validation statistics
+        """
+        if not validation_results:
             return {
                 "total_tests": 0,
                 "passed_tests": 0,
@@ -198,10 +389,11 @@ class N8nNotificationService:
                 "success_rate": 0.0,
                 "execution_time": 0.0,
                 "error_count": 0,
+                "test_results_count": 0,
             }
 
-        # Handle error case
-        if "error" in schemathesis_results:
+        # Handle error cases
+        if "error" in validation_results:
             return {
                 "total_tests": 0,
                 "passed_tests": 0,
@@ -209,21 +401,192 @@ class N8nNotificationService:
                 "success_rate": 0.0,
                 "execution_time": 0.0,
                 "error_count": 1,
-                "error_message": schemathesis_results.get("error", "Unknown error"),
+                "error_message": validation_results["error"],
+                "test_results_count": 0,
             }
 
-        # Extract statistics from summary if available
-        summary = schemathesis_results.get("summary", {})
+        # Extract from summary if available, otherwise from top-level
+        summary = validation_results.get("summary", validation_results)
 
         return {
-            "total_tests": schemathesis_results.get("total_tests", 0),
-            "passed_tests": schemathesis_results.get("passed_tests", 0),
-            "failed_tests": schemathesis_results.get("failed_tests", 0),
+            "total_tests": summary.get("total_tests", 0),
+            "passed_tests": summary.get("passed_tests", 0),
+            "failed_tests": summary.get("failed_tests", 0),
             "success_rate": summary.get("success_rate", 0.0),
-            "execution_time": schemathesis_results.get("execution_time", 0.0),
-            "error_count": len(schemathesis_results.get("errors", [])),
-            "test_results_count": len(schemathesis_results.get("test_results", [])),
+            "execution_time": summary.get("execution_time", 0.0),
+            "error_count": summary.get("error_count", len(validation_results.get("errors", []))),
+            "test_results_count": len(validation_results.get("test_results", [])),
         }
+
+    async def _send_har_webhook(
+        self, payload: N8nHARProcessingWebhookPayload, event_name: str
+    ) -> bool:
+        """
+        Send HAR processing webhook to n8n with retry logic.
+
+        Args:
+            payload: The HAR processing webhook payload
+            event_name: Name of the event for logging
+
+        Returns:
+            True if webhook was sent successfully, False otherwise
+        """
+        headers = {"Content-Type": "application/json"}
+        if self.webhook_secret:
+            headers["X-N8N-Webhook-Secret"] = self.webhook_secret
+
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                async with httpx.AsyncClient(timeout=self.timeout) as client:
+                    response = await client.post(
+                        self.webhook_url,
+                        json=payload.model_dump(),
+                        headers=headers,
+                    )
+
+                    if response.status_code in [200, 201, 202, 204]:
+                        logger.info(
+                            f"Successfully sent n8n HAR webhook for {event_name} "
+                            f"(upload_id: {payload.upload_id}, "
+                            f"user_id: {payload.user_id}, "
+                            f"attempt: {attempt})"
+                        )
+                        return True
+                    else:
+                        logger.warning(
+                            f"n8n HAR webhook failed for {event_name} "
+                            f"(upload_id: {payload.upload_id}, "
+                            f"user_id: {payload.user_id}, "
+                            f"attempt: {attempt}, "
+                            f"status: {response.status_code}, "
+                            f"response: {response.text})"
+                        )
+
+            except httpx.TimeoutException:
+                logger.warning(
+                    f"n8n HAR webhook timeout for {event_name} "
+                    f"(upload_id: {payload.upload_id}, "
+                    f"user_id: {payload.user_id}, "
+                    f"attempt: {attempt})"
+                )
+            except httpx.RequestError as e:
+                logger.warning(
+                    f"n8n HAR webhook request error for {event_name} "
+                    f"(upload_id: {payload.upload_id}, "
+                    f"user_id: {payload.user_id}, "
+                    f"attempt: {attempt}, error: {str(e)})"
+                )
+            except Exception as e:
+                logger.error(
+                    f"Unexpected error sending n8n HAR webhook for {event_name} "
+                    f"(upload_id: {payload.upload_id}, "
+                    f"user_id: {payload.user_id}, "
+                    f"attempt: {attempt}, error: {str(e)})"
+                )
+
+            # Wait before retrying (except on last attempt)
+            if attempt < self.max_retries:
+                logger.info(
+                    f"Retrying n8n HAR webhook for {event_name} "
+                    f"in {self.retry_delay} seconds "
+                    f"(upload_id: {payload.upload_id}, "
+                    f"user_id: {payload.user_id}, "
+                    f"attempt: {attempt + 1}/{self.max_retries})"
+                )
+                time.sleep(self.retry_delay)
+
+        logger.error(
+            f"Failed to send n8n HAR webhook for {event_name} "
+            f"after {self.max_retries} attempts "
+            f"(upload_id: {payload.upload_id}, "
+            f"user_id: {payload.user_id})"
+        )
+        return False
+
+    async def _send_har_review_webhook(
+        self, payload: N8nHARReviewWebhookPayload, event_name: str
+    ) -> bool:
+        """
+        Send HAR review request webhook to n8n with retry logic.
+
+        Args:
+            payload: The HAR review webhook payload
+            event_name: Name of the event for logging
+
+        Returns:
+            True if webhook was sent successfully, False otherwise
+        """
+        headers = {"Content-Type": "application/json"}
+        if self.webhook_secret:
+            headers["X-N8N-Webhook-Secret"] = self.webhook_secret
+
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                async with httpx.AsyncClient(timeout=self.timeout) as client:
+                    response = await client.post(
+                        self.webhook_url,
+                        json=payload.model_dump(),
+                        headers=headers,
+                    )
+
+                    if response.status_code in [200, 201, 202, 204]:
+                        logger.info(
+                            f"Successfully sent n8n HAR review webhook for {event_name} "
+                            f"(upload_id: {payload.upload_id}, "
+                            f"user_id: {payload.user_id}, "
+                            f"attempt: {attempt})"
+                        )
+                        return True
+                    else:
+                        logger.warning(
+                            f"n8n HAR review webhook failed for {event_name} "
+                            f"(upload_id: {payload.upload_id}, "
+                            f"user_id: {payload.user_id}, "
+                            f"attempt: {attempt}, "
+                            f"status: {response.status_code}, "
+                            f"response: {response.text})"
+                        )
+
+            except httpx.TimeoutException:
+                logger.warning(
+                    f"n8n HAR review webhook timeout for {event_name} "
+                    f"(upload_id: {payload.upload_id}, "
+                    f"user_id: {payload.user_id}, "
+                    f"attempt: {attempt})"
+                )
+            except httpx.RequestError as e:
+                logger.warning(
+                    f"n8n HAR review webhook request error for {event_name} "
+                    f"(upload_id: {payload.upload_id}, "
+                    f"user_id: {payload.user_id}, "
+                    f"attempt: {attempt}, error: {str(e)})"
+                )
+            except Exception as e:
+                logger.error(
+                    f"Unexpected error sending n8n HAR review webhook for {event_name} "
+                    f"(upload_id: {payload.upload_id}, "
+                    f"user_id: {payload.user_id}, "
+                    f"attempt: {attempt}, error: {str(e)})"
+                )
+
+            # Wait before retrying (except on last attempt)
+            if attempt < self.max_retries:
+                logger.info(
+                    f"Retrying n8n HAR review webhook for {event_name} "
+                    f"in {self.retry_delay} seconds "
+                    f"(upload_id: {payload.upload_id}, "
+                    f"user_id: {payload.user_id}, "
+                    f"attempt: {attempt + 1}/{self.max_retries})"
+                )
+                time.sleep(self.retry_delay)
+
+        logger.error(
+            f"Failed to send n8n HAR review webhook for {event_name} "
+            f"after {self.max_retries} attempts "
+            f"(upload_id: {payload.upload_id}, "
+            f"user_id: {payload.user_id})"
+        )
+        return False
 
     async def _send_validation_webhook(
         self, payload: N8nValidationWebhookPayload, event_name: str

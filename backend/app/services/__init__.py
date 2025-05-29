@@ -12,6 +12,14 @@ from .har_ai_processor import (
 from .har_parser import APIInteraction, APIRequest, APIResponse, EndpointGroup, HARParser
 from .har_processing import HARProcessingService, ProcessingStatus, ProcessingStep
 from .har_to_wiremock import HARToWireMockService, HARToWireMockTransformer
+from .n8n_notifications import (
+    N8nHARProcessingWebhookPayload,
+    N8nHARReviewWebhookPayload,
+    N8nNotificationService,
+    N8nValidationWebhookPayload,
+    N8nWebhookPayload,
+    n8n_service,
+)
 from .schemathesis_integration import (
     AuthenticationHandler,
     SchemathesisIntegrationService,
@@ -41,6 +49,12 @@ __all__ = [
     "HARToWireMockService",
     "HARToWireMockTransformer",
     "HARTypeInferencer",
+    "N8nHARProcessingWebhookPayload",
+    "N8nHARReviewWebhookPayload",
+    "N8nNotificationService",
+    "N8nValidationWebhookPayload",
+    "N8nWebhookPayload",
+    "n8n_service",
     "OpenAPIEndpoint",
     "OpenAPIParser",
     "ProcessingStatus",
