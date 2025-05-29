@@ -16,27 +16,37 @@ import type {
   PaginatedResponse,
 } from "@/services/api";
 import apiClient from "@/services/api";
-import { Calendar, FileText, Trash2 } from "lucide-react";
+import { Calendar, Eye, FileText, Play, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 interface HARUploadsListProps {
   onRefresh?: () => void;
   refreshTrigger?: number;
+  onViewContractSketches?: (uploadId: number) => void;
+}
+
+interface PaginationState {
+  page: number;
+  size: number;
+  total: number;
+  pages: number;
 }
 
 export function HARUploadsList({
   onRefresh,
   refreshTrigger,
+  onViewContractSketches,
 }: HARUploadsListProps) {
   const [uploads, setUploads] = useState<HARUpload[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [pagination, setPagination] = useState({
+  const [processing, setProcessing] = useState<Set<number>>(new Set());
+  const [pagination, setPagination] = useState<PaginationState>({
     page: 1,
     size: 10,
     total: 0,
-    pages: 0,
+    pages: 1,
   });
 
   const loadUploads = useCallback(
@@ -76,6 +86,44 @@ export function HARUploadsList({
     loadUploads();
   }, [loadUploads, refreshTrigger]);
 
+  // Polling for processing status
+  useEffect(() => {
+    if (processing.size === 0) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const processingIds = Array.from(processing);
+        const statusChecks = await Promise.allSettled(
+          processingIds.map((id) => apiClient.getHARProcessingStatus(id)),
+        );
+
+        let shouldRefresh = false;
+        const newProcessing = new Set(processing);
+
+        statusChecks.forEach((result, index) => {
+          const uploadId = processingIds[index];
+          if (result.status === "fulfilled") {
+            const status = result.value;
+            if (status.status === "completed" || status.status === "failed") {
+              newProcessing.delete(uploadId);
+              shouldRefresh = true;
+            }
+          }
+        });
+
+        if (shouldRefresh) {
+          setProcessing(newProcessing);
+          await loadUploads({ page: pagination.page });
+          onRefresh?.();
+        }
+      } catch (err) {
+        console.error("Error polling processing status:", err);
+      }
+    }, 2000); // Poll every 2 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [processing, pagination.page, loadUploads, onRefresh]);
+
   const handleDelete = async (id: number) => {
     if (!confirm("Are you sure you want to delete this HAR upload?")) {
       return;
@@ -88,6 +136,28 @@ export function HARUploadsList({
     } catch (err) {
       console.error("Error deleting HAR upload:", err);
       setError("Failed to delete HAR upload");
+    }
+  };
+
+  const handleProcess = async (id: number) => {
+    try {
+      setProcessing((prev) => new Set(prev).add(id));
+      setError(null);
+
+      await apiClient.processHARFile(id);
+
+      // Refresh the uploads list to show updated status
+      await loadUploads({ page: pagination.page });
+      onRefresh?.();
+    } catch (err) {
+      console.error("Error processing HAR file:", err);
+      setError("Failed to process HAR file");
+    } finally {
+      setProcessing((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
+      });
     }
   };
 
@@ -215,6 +285,33 @@ export function HARUploadsList({
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
+                          {!upload.processed_artifacts_references && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleProcess(upload.id)}
+                              disabled={processing.has(upload.id)}
+                              className="text-blue-600 hover:text-blue-600"
+                            >
+                              {processing.has(upload.id) ? (
+                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+                              ) : (
+                                <Play className="h-4 w-4" />
+                              )}
+                            </Button>
+                          )}
+                          {upload.processed_artifacts_references && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                onViewContractSketches?.(upload.id)
+                              }
+                              className="text-primary hover:text-primary"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

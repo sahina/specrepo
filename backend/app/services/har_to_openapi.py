@@ -160,6 +160,7 @@ class HARToOpenAPITransformer:
     def _generate_paths(self, endpoint_groups: List[EndpointGroup]) -> Dict[str, Any]:
         """Generate OpenAPI paths from endpoint groups."""
         paths = {}
+        operation_ids = set()  # Track used operation IDs
 
         for group in endpoint_groups:
             for interaction in group.interactions:
@@ -171,6 +172,19 @@ class HARToOpenAPITransformer:
 
                 if method not in paths[path_template]:
                     operation = self._generate_operation(interaction, group)
+
+                    # Ensure operation ID is unique
+                    base_operation_id = operation["operationId"]
+                    operation_id = base_operation_id
+                    counter = 1
+
+                    while operation_id in operation_ids:
+                        operation_id = f"{base_operation_id}{counter}"
+                        counter += 1
+
+                    operation["operationId"] = operation_id
+                    operation_ids.add(operation_id)
+
                     paths[path_template][method] = operation
                 else:
                     # Merge with existing operation if needed
