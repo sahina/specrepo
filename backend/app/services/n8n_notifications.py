@@ -1,7 +1,7 @@
 import logging
 import os
 import time
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import httpx
 from pydantic import BaseModel
@@ -36,6 +36,25 @@ class N8nValidationWebhookPayload(BaseModel):
     timestamp: str
     validation_results: Optional[Dict]
     validation_statistics: Dict
+
+
+class N8nContractValidationWebhookPayload(BaseModel):
+    """Pydantic model for n8n contract validation webhook payload."""
+
+    event_type: str  # "contract_validation_completed" or "contract_validation_failed"
+    contract_validation_id: int
+    specification_id: int
+    specification_name: str
+    provider_url: str
+    user_id: int
+    status: str  # "completed", "failed", "cancelled"
+    timestamp: str
+    contract_health_status: str  # "HEALTHY", "DEGRADED", "BROKEN"
+    health_score: float
+    producer_validation_results: Optional[Dict]
+    mock_alignment_results: Optional[Dict]
+    validation_summary: Dict
+    recommendations: List[str]
 
 
 class N8nHARProcessingWebhookPayload(BaseModel):
@@ -204,6 +223,86 @@ class N8nNotificationService:
         )
 
         return await self._send_validation_webhook(payload, "validation_failed")
+
+    async def send_contract_validation_completed(
+        self, contract_validation, api_specification: APISpecification
+    ) -> bool:
+        """
+        Send notification when a contract validation completes successfully.
+
+        Args:
+            contract_validation: The completed contract validation
+            api_specification: The API specification that was validated
+
+        Returns:
+            True if notification was sent successfully, False otherwise
+        """
+        if not self.is_enabled():
+            logger.debug("n8n notifications disabled - no webhook URL configured")
+            return True
+
+        # Extract recommendations from validation summary
+        recommendations = contract_validation.validation_summary.get("recommendations", [])
+
+        payload = N8nContractValidationWebhookPayload(
+            event_type="contract_validation_completed",
+            contract_validation_id=contract_validation.id,
+            specification_id=api_specification.id,
+            specification_name=api_specification.name,
+            provider_url=contract_validation.provider_url,
+            user_id=contract_validation.user_id,
+            status=contract_validation.status,
+            timestamp=contract_validation.triggered_at.isoformat(),
+            contract_health_status=contract_validation.contract_health_status,
+            health_score=contract_validation.health_score,
+            producer_validation_results=contract_validation.producer_validation_results,
+            mock_alignment_results=contract_validation.mock_alignment_results,
+            validation_summary=contract_validation.validation_summary,
+            recommendations=recommendations,
+        )
+
+        return await self._send_contract_validation_webhook(
+            payload, "contract_validation_completed"
+        )
+
+    async def send_contract_validation_failed(
+        self, contract_validation, api_specification: APISpecification
+    ) -> bool:
+        """
+        Send notification when a contract validation fails.
+
+        Args:
+            contract_validation: The failed contract validation
+            api_specification: The API specification that was validated
+
+        Returns:
+            True if notification was sent successfully, False otherwise
+        """
+        if not self.is_enabled():
+            logger.debug("n8n notifications disabled - no webhook URL configured")
+            return True
+
+        # Extract recommendations from validation summary (may be limited for failed runs)
+        recommendations = contract_validation.validation_summary.get("recommendations", [])
+
+        payload = N8nContractValidationWebhookPayload(
+            event_type="contract_validation_failed",
+            contract_validation_id=contract_validation.id,
+            specification_id=api_specification.id,
+            specification_name=api_specification.name,
+            provider_url=contract_validation.provider_url,
+            user_id=contract_validation.user_id,
+            status=contract_validation.status,
+            timestamp=contract_validation.triggered_at.isoformat(),
+            contract_health_status=contract_validation.contract_health_status,
+            health_score=contract_validation.health_score,
+            producer_validation_results=contract_validation.producer_validation_results,
+            mock_alignment_results=contract_validation.mock_alignment_results,
+            validation_summary=contract_validation.validation_summary,
+            recommendations=recommendations,
+        )
+
+        return await self._send_contract_validation_webhook(payload, "contract_validation_failed")
 
     async def send_har_processing_completed(
         self, upload_id: int, file_name: str, user_id: int, processing_result: Dict
@@ -669,6 +768,92 @@ class N8nNotificationService:
             f"Failed to send n8n validation webhook for {event_name} "
             f"after {self.max_retries} attempts "
             f"(validation_run_id: {payload.validation_run_id}, "
+            f"spec_id: {payload.specification_id})"
+        )
+        return False
+
+    async def _send_contract_validation_webhook(
+        self, payload: N8nContractValidationWebhookPayload, event_name: str
+    ) -> bool:
+        """
+        Send contract validation webhook to n8n with retry logic.
+
+        Args:
+            payload: The contract validation webhook payload
+            event_name: Name of the event for logging
+
+        Returns:
+            True if webhook was sent successfully, False otherwise
+        """
+        headers = {"Content-Type": "application/json"}
+        if self.webhook_secret:
+            headers["X-N8N-Webhook-Secret"] = self.webhook_secret
+
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                async with httpx.AsyncClient(timeout=self.timeout) as client:
+                    response = await client.post(
+                        self.webhook_url,
+                        json=payload.model_dump(),
+                        headers=headers,
+                    )
+
+                    if response.status_code in [200, 201, 202, 204]:
+                        logger.info(
+                            f"Successfully sent n8n contract validation webhook for {event_name} "
+                            f"(contract_validation_id: {payload.contract_validation_id}, "
+                            f"spec_id: {payload.specification_id}, "
+                            f"health_status: {payload.contract_health_status}, "
+                            f"attempt: {attempt})"
+                        )
+                        return True
+                    else:
+                        logger.warning(
+                            f"n8n contract validation webhook failed for {event_name} "
+                            f"(contract_validation_id: {payload.contract_validation_id}, "
+                            f"spec_id: {payload.specification_id}, "
+                            f"attempt: {attempt}, "
+                            f"status: {response.status_code}, "
+                            f"response: {response.text})"
+                        )
+
+            except httpx.TimeoutException:
+                logger.warning(
+                    f"n8n contract validation webhook timeout for {event_name} "
+                    f"(contract_validation_id: {payload.contract_validation_id}, "
+                    f"spec_id: {payload.specification_id}, "
+                    f"attempt: {attempt})"
+                )
+            except httpx.RequestError as e:
+                logger.warning(
+                    f"n8n contract validation webhook request error for {event_name} "
+                    f"(contract_validation_id: {payload.contract_validation_id}, "
+                    f"spec_id: {payload.specification_id}, "
+                    f"attempt: {attempt}, error: {str(e)})"
+                )
+            except Exception as e:
+                logger.error(
+                    f"Unexpected error sending n8n contract validation webhook for {event_name} "
+                    f"(contract_validation_id: {payload.contract_validation_id}, "
+                    f"spec_id: {payload.specification_id}, "
+                    f"attempt: {attempt}, error: {str(e)})"
+                )
+
+            # Wait before retrying (except on last attempt)
+            if attempt < self.max_retries:
+                logger.info(
+                    f"Retrying n8n contract validation webhook for {event_name} "
+                    f"in {self.retry_delay} seconds "
+                    f"(contract_validation_id: {payload.contract_validation_id}, "
+                    f"spec_id: {payload.specification_id}, "
+                    f"attempt: {attempt + 1}/{self.max_retries})"
+                )
+                time.sleep(self.retry_delay)
+
+        logger.error(
+            f"Failed to send n8n contract validation webhook for {event_name} "
+            f"after {self.max_retries} attempts "
+            f"(contract_validation_id: {payload.contract_validation_id}, "
             f"spec_id: {payload.specification_id})"
         )
         return False

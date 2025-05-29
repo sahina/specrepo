@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.models import APISpecification, ContractValidation, Environment, MockConfiguration
 from app.schemas import AuthMethod, ContractHealthStatus, ContractValidationStatus
 from app.services.mock_configuration import MockConfigurationService
+from app.services.n8n_notifications import N8nNotificationService
 from app.services.schemathesis_integration import SchemathesisIntegrationService
 from app.services.wiremock_integration import WireMockIntegrationService
 
@@ -354,6 +355,7 @@ class ContractValidationService:
         self.wiremock_service = WireMockIntegrationService()
         self.mock_service = MockConfigurationService()
         self.health_analyzer = ContractHealthAnalyzer()
+        self.n8n_service = N8nNotificationService()
 
     async def create_contract_validation(
         self,
@@ -550,6 +552,14 @@ class ContractValidationService:
                 f"{health_status.value}"
             )
 
+            # Send notification for successful completion
+            try:
+                await self.n8n_service.send_contract_validation_completed(
+                    contract_validation, api_spec
+                )
+            except Exception as e:
+                logger.warning(f"Failed to send contract validation completion notification: {e}")
+
             return contract_validation
 
         except Exception as e:
@@ -565,6 +575,23 @@ class ContractValidationService:
 
             db.commit()
             db.refresh(contract_validation)
+
+            # Send notification for failure
+            try:
+                # Get API specification for notification
+                api_spec = (
+                    db.query(APISpecification)
+                    .filter(APISpecification.id == contract_validation.api_specification_id)
+                    .first()
+                )
+                if api_spec:
+                    await self.n8n_service.send_contract_validation_failed(
+                        contract_validation, api_spec
+                    )
+            except Exception as notification_error:
+                logger.warning(
+                    f"Failed to send contract validation failure notification: {notification_error}"
+                )
 
             raise
 

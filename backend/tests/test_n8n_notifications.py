@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.models import APISpecification, User, ValidationRun
 from app.services.n8n_notifications import (
+    N8nContractValidationWebhookPayload,
     N8nNotificationService,
     N8nValidationWebhookPayload,
     N8nWebhookPayload,
@@ -157,6 +158,126 @@ class TestN8nValidationWebhookPayload:
             "timestamp": "2023-01-01T00:00:00",
             "validation_results": {"total_tests": 5},
             "validation_statistics": {"success_rate": 100.0},
+        }
+
+        assert data == expected
+
+
+class TestN8nContractValidationWebhookPayload:
+    """Test the N8nContractValidationWebhookPayload Pydantic model."""
+
+    def test_contract_validation_webhook_payload_creation(self):
+        """Test creating a contract validation webhook payload with valid data."""
+        payload = N8nContractValidationWebhookPayload(
+            event_type="contract_validation_completed",
+            contract_validation_id=1,
+            specification_id=2,
+            specification_name="Test API",
+            provider_url="https://api.example.com",
+            user_id=123,
+            status="completed",
+            timestamp="2023-01-01T00:00:00",
+            contract_health_status="HEALTHY",
+            health_score=0.95,
+            producer_validation_results={
+                "total_tests": 10,
+                "passed_tests": 9,
+                "failed_tests": 1,
+            },
+            mock_alignment_results={
+                "total_endpoints": 5,
+                "aligned_endpoints": 5,
+                "schema_mismatches": 0,
+            },
+            validation_summary={
+                "health_score": 0.95,
+                "health_status": "HEALTHY",
+                "recommendations": ["Continue monitoring"],
+            },
+            recommendations=["Continue monitoring", "Review failed test"],
+        )
+
+        assert payload.event_type == "contract_validation_completed"
+        assert payload.contract_validation_id == 1
+        assert payload.specification_id == 2
+        assert payload.specification_name == "Test API"
+        assert payload.provider_url == "https://api.example.com"
+        assert payload.user_id == 123
+        assert payload.status == "completed"
+        assert payload.timestamp == "2023-01-01T00:00:00"
+        assert payload.contract_health_status == "HEALTHY"
+        assert payload.health_score == 0.95
+        assert payload.producer_validation_results["total_tests"] == 10
+        assert payload.mock_alignment_results["total_endpoints"] == 5
+        assert payload.validation_summary["health_score"] == 0.95
+        assert len(payload.recommendations) == 2
+
+    def test_contract_validation_webhook_payload_with_none_results(self):
+        """Test creating a contract validation webhook payload with None results."""
+        payload = N8nContractValidationWebhookPayload(
+            event_type="contract_validation_failed",
+            contract_validation_id=2,
+            specification_id=3,
+            specification_name="Failed API",
+            provider_url="https://api.failed.com",
+            user_id=456,
+            status="failed",
+            timestamp="2023-01-02T00:00:00",
+            contract_health_status="BROKEN",
+            health_score=0.0,
+            producer_validation_results=None,
+            mock_alignment_results=None,
+            validation_summary={
+                "error": "Validation failed",
+                "timestamp": "2023-01-02T00:00:00",
+            },
+            recommendations=["Check provider connectivity", "Review API specification"],
+        )
+
+        assert payload.event_type == "contract_validation_failed"
+        assert payload.contract_validation_id == 2
+        assert payload.contract_health_status == "BROKEN"
+        assert payload.health_score == 0.0
+        assert payload.producer_validation_results is None
+        assert payload.mock_alignment_results is None
+        assert payload.validation_summary["error"] == "Validation failed"
+        assert len(payload.recommendations) == 2
+
+    def test_contract_validation_webhook_payload_model_dump(self):
+        """Test that the contract validation payload can be serialized to dict."""
+        payload = N8nContractValidationWebhookPayload(
+            event_type="contract_validation_completed",
+            contract_validation_id=1,
+            specification_id=2,
+            specification_name="Test API",
+            provider_url="https://api.example.com",
+            user_id=123,
+            status="completed",
+            timestamp="2023-01-01T00:00:00",
+            contract_health_status="HEALTHY",
+            health_score=0.95,
+            producer_validation_results={"total_tests": 5},
+            mock_alignment_results={"total_endpoints": 3},
+            validation_summary={"health_score": 0.95},
+            recommendations=["Continue monitoring"],
+        )
+
+        data = payload.model_dump()
+        expected = {
+            "event_type": "contract_validation_completed",
+            "contract_validation_id": 1,
+            "specification_id": 2,
+            "specification_name": "Test API",
+            "provider_url": "https://api.example.com",
+            "user_id": 123,
+            "status": "completed",
+            "timestamp": "2023-01-01T00:00:00",
+            "contract_health_status": "HEALTHY",
+            "health_score": 0.95,
+            "producer_validation_results": {"total_tests": 5},
+            "mock_alignment_results": {"total_endpoints": 3},
+            "validation_summary": {"health_score": 0.95},
+            "recommendations": ["Continue monitoring"],
         }
 
         assert data == expected
@@ -695,6 +816,175 @@ class TestN8nNotificationService:
         assert result is False
         assert mock_client.post.call_count == 2  # Should retry once
 
+    def create_mock_contract_validation(self, validation_id=1, status="completed"):
+        """Create a mock contract validation object for testing."""
+        mock_validation = MagicMock()
+        mock_validation.id = validation_id
+        mock_validation.api_specification_id = 2
+        mock_validation.user_id = 123
+        mock_validation.status = status
+        mock_validation.triggered_at = datetime(2023, 1, 1, 0, 0, 0)
+        mock_validation.completed_at = datetime(2023, 1, 1, 0, 5, 0)
+        mock_validation.provider_url = "https://api.example.com"
+        mock_validation.contract_health_status = "HEALTHY"
+        mock_validation.health_score = 0.95
+        mock_validation.producer_validation_results = {
+            "total_tests": 10,
+            "passed_tests": 9,
+            "failed_tests": 1,
+            "execution_time": 30.5,
+            "errors": [],
+        }
+        mock_validation.mock_alignment_results = {
+            "total_endpoints": 5,
+            "aligned_endpoints": 5,
+            "schema_mismatches": 0,
+            "alignment_rate": 1.0,
+        }
+        mock_validation.validation_summary = {
+            "health_score": 0.95,
+            "health_status": "HEALTHY",
+            "timestamp": "2023-01-01T00:05:00",
+            "producer_validation": {
+                "total_tests": 10,
+                "passed_tests": 9,
+                "failed_tests": 1,
+                "error_count": 0,
+                "execution_time": 30.5,
+            },
+            "mock_alignment": {
+                "total_endpoints": 5,
+                "aligned_endpoints": 5,
+                "schema_mismatches": 0,
+                "alignment_rate": 1.0,
+            },
+            "recommendations": ["Continue monitoring"],
+        }
+        return mock_validation
+
+    @pytest.mark.asyncio
+    async def test_send_contract_validation_completed_disabled(self):
+        """Test that contract validation completed notification is skipped when disabled."""
+        os.environ.pop("N8N_WEBHOOK_URL", None)
+        service = N8nNotificationService()
+
+        mock_validation = self.create_mock_contract_validation()
+        mock_spec = self.create_mock_specification()
+
+        result = await service.send_contract_validation_completed(mock_validation, mock_spec)
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_send_contract_validation_failed_disabled(self):
+        """Test that contract validation failed notification is skipped when disabled."""
+        os.environ.pop("N8N_WEBHOOK_URL", None)
+        service = N8nNotificationService()
+
+        mock_validation = self.create_mock_contract_validation(status="failed")
+        mock_spec = self.create_mock_specification()
+
+        result = await service.send_contract_validation_failed(mock_validation, mock_spec)
+        assert result is True
+
+    @pytest.mark.asyncio
+    @patch("httpx.AsyncClient")
+    async def test_send_contract_validation_completed_success(self, mock_client_class):
+        """Test successful contract validation completed notification."""
+        os.environ["N8N_WEBHOOK_URL"] = "https://test.webhook.url"
+        os.environ["N8N_WEBHOOK_SECRET"] = "test-secret"
+
+        mock_client = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_client.post.return_value = mock_response
+        mock_client_class.return_value.__aenter__.return_value = mock_client
+
+        service = N8nNotificationService()
+        mock_validation = self.create_mock_contract_validation()
+        mock_spec = self.create_mock_specification()
+
+        result = await service.send_contract_validation_completed(mock_validation, mock_spec)
+
+        assert result is True
+        mock_client.post.assert_called_once()
+        call_args = mock_client.post.call_args
+        assert call_args[0][0] == "https://test.webhook.url"
+        assert call_args[1]["headers"]["X-N8N-Webhook-Secret"] == "test-secret"
+
+        # Verify payload structure
+        payload_data = call_args[1]["json"]
+        assert payload_data["event_type"] == "contract_validation_completed"
+        assert payload_data["contract_validation_id"] == 1
+        assert payload_data["specification_name"] == "Test API"
+        assert payload_data["contract_health_status"] == "HEALTHY"
+        assert payload_data["health_score"] == 0.95
+
+    @pytest.mark.asyncio
+    @patch("httpx.AsyncClient")
+    async def test_send_contract_validation_failed_success(self, mock_client_class):
+        """Test successful contract validation failed notification."""
+        os.environ["N8N_WEBHOOK_URL"] = "https://test.webhook.url"
+        os.environ["N8N_WEBHOOK_SECRET"] = "test-secret"
+
+        mock_client = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_client.post.return_value = mock_response
+        mock_client_class.return_value.__aenter__.return_value = mock_client
+
+        service = N8nNotificationService()
+        mock_validation = self.create_mock_contract_validation(status="failed")
+        mock_validation.contract_health_status = "BROKEN"
+        mock_validation.health_score = 0.2
+        mock_validation.validation_summary = {
+            "error": "Contract validation failed",
+            "timestamp": "2023-01-01T00:05:00",
+        }
+        mock_spec = self.create_mock_specification()
+
+        result = await service.send_contract_validation_failed(mock_validation, mock_spec)
+
+        assert result is True
+        mock_client.post.assert_called_once()
+        call_args = mock_client.post.call_args
+        assert call_args[0][0] == "https://test.webhook.url"
+        assert call_args[1]["headers"]["X-N8N-Webhook-Secret"] == "test-secret"
+
+        # Verify payload structure
+        payload_data = call_args[1]["json"]
+        assert payload_data["event_type"] == "contract_validation_failed"
+        assert payload_data["contract_validation_id"] == 1
+        assert payload_data["specification_name"] == "Test API"
+        assert payload_data["status"] == "failed"
+
+    @pytest.mark.asyncio
+    @patch("httpx.AsyncClient")
+    async def test_send_contract_validation_webhook_retry_logic(self, mock_client_class):
+        """Test contract validation webhook retry logic on failure."""
+        os.environ["N8N_WEBHOOK_URL"] = "https://test.webhook.url"
+        os.environ["N8N_MAX_RETRIES"] = "2"
+        os.environ["N8N_RETRY_DELAY_SECONDS"] = "1"
+
+        mock_client = AsyncMock()
+        # First call fails, second succeeds
+        mock_response_fail = MagicMock()
+        mock_response_fail.status_code = 500
+        mock_response_success = MagicMock()
+        mock_response_success.status_code = 200
+        mock_client.post.side_effect = [mock_response_fail, mock_response_success]
+        mock_client_class.return_value.__aenter__.return_value = mock_client
+
+        service = N8nNotificationService()
+        mock_validation = self.create_mock_contract_validation()
+        mock_spec = self.create_mock_specification()
+
+        with patch("time.sleep") as mock_sleep:
+            result = await service.send_contract_validation_completed(mock_validation, mock_spec)
+
+        assert result is True
+        assert mock_client.post.call_count == 2
+        mock_sleep.assert_called_once_with(1)
+
 
 class TestN8nIntegrationWithAPI:
     """Test n8n integration with API endpoints."""
@@ -756,9 +1046,7 @@ class TestN8nIntegrationWithAPI:
 
     @patch("app.services.n8n_notifications.n8n_service.send_specification_created")
     @patch("app.services.api_specifications.APISpecificationService.create_specification")
-    @patch(
-        "app.services.api_specifications.APISpecificationService.check_name_version_exists"
-    )
+    @patch("app.services.api_specifications.APISpecificationService.check_name_version_exists")
     def test_create_specification_triggers_n8n_notification(
         self,
         mock_check_exists,
@@ -797,9 +1085,7 @@ class TestN8nIntegrationWithAPI:
     @patch("app.services.n8n_notifications.n8n_service.send_specification_updated")
     @patch("app.services.api_specifications.APISpecificationService.update_specification")
     @patch("app.services.api_specifications.APISpecificationService.get_specification")
-    @patch(
-        "app.services.api_specifications.APISpecificationService.check_name_version_exists"
-    )
+    @patch("app.services.api_specifications.APISpecificationService.check_name_version_exists")
     def test_update_specification_triggers_n8n_notification(
         self,
         mock_check_exists,
@@ -831,9 +1117,7 @@ class TestN8nIntegrationWithAPI:
 
     @patch("app.services.n8n_notifications.n8n_service.send_specification_created")
     @patch("app.services.api_specifications.APISpecificationService.create_specification")
-    @patch(
-        "app.services.api_specifications.APISpecificationService.check_name_version_exists"
-    )
+    @patch("app.services.api_specifications.APISpecificationService.check_name_version_exists")
     @patch("app.dependencies.get_current_user")
     @patch("app.db.session.get_db")
     def test_create_specification_continues_on_n8n_failure(
