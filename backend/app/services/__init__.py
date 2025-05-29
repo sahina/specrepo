@@ -1,5 +1,6 @@
 # Services package
 
+from .har_parser import APIInteraction, APIRequest, APIResponse, EndpointGroup, HARParser
 from .schemathesis_integration import (
     AuthenticationHandler,
     SchemathesisIntegrationService,
@@ -15,6 +16,11 @@ from .wiremock_integration import (
 )
 
 __all__ = [
+    "APIInteraction",
+    "APIRequest",
+    "APIResponse",
+    "EndpointGroup",
+    "HARParser",
     "WireMockIntegrationService",
     "OpenAPIParser",
     "WireMockStubGenerator",
