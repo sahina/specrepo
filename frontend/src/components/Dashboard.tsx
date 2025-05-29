@@ -1,5 +1,6 @@
 import type { APISpecification, ValidationRun } from "@/services/api";
 import { useState } from "react";
+import { ContractHealthDashboard } from "./ContractHealthDashboard";
 import { ContractSketches } from "./ContractSketches";
 import { HARManager } from "./HARManager";
 import { Header } from "./Header";
@@ -16,6 +17,7 @@ type DashboardView =
   | "validations"
   | "har-uploads"
   | "contract-sketches"
+  | "contract-health"
   | "settings"
   | "specification-detail"
   | "specification-view"
@@ -258,6 +260,18 @@ export function Dashboard() {
     );
   }
 
+  // Contract Health View
+  if (state.view === "contract-health") {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header currentView={state.view} onNavigate={handleNavigate} />
+        <div className="container mx-auto px-4 py-8">
+          <ContractHealthDashboard />
+        </div>
+      </div>
+    );
+  }
+
   // Overview/Dashboard View
   return (
     <div className="min-h-screen bg-background">
@@ -288,6 +302,19 @@ export function Dashboard() {
                 onClick={() => setState({ view: "validations" })}
               >
                 View Reports
+              </button>
+            </div>
+
+            <div className="bg-card border rounded-lg p-6">
+              <h2 className="text-xl font-semibold mb-3">Contract Health</h2>
+              <p className="text-muted-foreground mb-4">
+                Monitor contract health and validation status across all APIs
+              </p>
+              <button
+                className="bg-accent text-accent-foreground px-4 py-2 rounded-md hover:bg-accent/90 transition-colors"
+                onClick={() => setState({ view: "contract-health" })}
+              >
+                View Dashboard
               </button>
             </div>
 

@@ -293,6 +293,89 @@ export interface SaveArtifactRequest {
   description?: string;
 }
 
+// Contract Health types
+export enum ContractHealthStatus {
+  HEALTHY = "healthy",
+  DEGRADED = "degraded",
+  BROKEN = "broken",
+}
+
+export enum ContractValidationStatus {
+  PENDING = "pending",
+  RUNNING = "running",
+  COMPLETED = "completed",
+  FAILED = "failed",
+  CANCELLED = "cancelled",
+}
+
+export interface ContractValidation {
+  id: number;
+  api_specification_id: number;
+  environment_id?: number;
+  provider_url: string;
+  validation_run_id: number;
+  mock_configuration_id?: number;
+  contract_health_status: ContractHealthStatus;
+  health_score: number;
+  producer_validation_results?: Record<string, unknown>;
+  mock_alignment_results?: Record<string, unknown>;
+  validation_summary?: Record<string, unknown>;
+  status: ContractValidationStatus;
+  triggered_at: string;
+  completed_at?: string;
+  user_id: number;
+}
+
+export interface ContractValidationCreate {
+  api_specification_id: number;
+  environment_id?: number;
+  provider_url?: string;
+  auth_method?: AuthMethod;
+  auth_config?: Record<string, unknown>;
+  test_strategies?: string[];
+  max_examples?: number;
+  timeout?: number;
+}
+
+export interface ContractHealthSummary {
+  total_validations: number;
+  healthy_count: number;
+  degraded_count: number;
+  broken_count: number;
+  average_health_score: number;
+  latest_validation?: ContractValidation;
+}
+
+export interface ContractHealthOverview {
+  total_specifications: number;
+  total_validations: number;
+  overall_health_distribution: {
+    healthy: number;
+    degraded: number;
+    broken: number;
+  };
+  average_health_score: number;
+  recent_validations: Array<{
+    id: number;
+    api_specification_id: number;
+    health_status: string;
+    health_score: number;
+    triggered_at: string;
+  }>;
+}
+
+export interface ContractValidationFilters {
+  api_specification_id?: number;
+  status?: ContractValidationStatus;
+  contract_health_status?: ContractHealthStatus;
+  environment_id?: number;
+  provider_url?: string;
+  sort_by?: string;
+  sort_order?: "asc" | "desc";
+  page?: number;
+  size?: number;
+}
+
 // ============================================================================
 // API Client Class
 // ============================================================================
@@ -718,6 +801,77 @@ class ApiClient {
       `/api/har-uploads/${uploadId}/save-artifact`,
       data,
     );
+    return response.data;
+  }
+
+  // ============================================================================
+  // Contract Health Methods
+  // ============================================================================
+
+  async createContractValidation(
+    data: ContractValidationCreate,
+  ): Promise<ContractValidation> {
+    const response: AxiosResponse<ContractValidation> = await this.client.post(
+      "/api/contract-validations/",
+      data,
+    );
+    return response.data;
+  }
+
+  async getContractValidations(
+    filters?: ContractValidationFilters,
+  ): Promise<PaginatedResponse<ContractValidation>> {
+    const params = new URLSearchParams();
+
+    if (filters?.api_specification_id)
+      params.append(
+        "api_specification_id",
+        filters.api_specification_id.toString(),
+      );
+    if (filters?.status) params.append("status", filters.status);
+    if (filters?.contract_health_status)
+      params.append("contract_health_status", filters.contract_health_status);
+    if (filters?.environment_id)
+      params.append("environment_id", filters.environment_id.toString());
+    if (filters?.provider_url)
+      params.append("provider_url", filters.provider_url);
+    if (filters?.sort_by) params.append("sort_by", filters.sort_by);
+    if (filters?.sort_order) params.append("sort_order", filters.sort_order);
+    if (filters?.page) params.append("page", filters.page.toString());
+    if (filters?.size) params.append("size", filters.size.toString());
+
+    const response: AxiosResponse<PaginatedResponse<ContractValidation>> =
+      await this.client.get(`/api/contract-validations/?${params.toString()}`);
+    return response.data;
+  }
+
+  async getContractValidation(id: number): Promise<ContractValidation> {
+    const response: AxiosResponse<ContractValidation> = await this.client.get(
+      `/api/contract-validations/${id}`,
+    );
+    return response.data;
+  }
+
+  async executeContractValidation(id: number): Promise<ContractValidation> {
+    const response: AxiosResponse<ContractValidation> = await this.client.post(
+      `/api/contract-validations/${id}/execute`,
+    );
+    return response.data;
+  }
+
+  async getContractHealthSummary(
+    specificationId: number,
+  ): Promise<ContractHealthSummary> {
+    const response: AxiosResponse<ContractHealthSummary> =
+      await this.client.get(
+        `/api/contract-validations/specifications/${specificationId}/health-summary`,
+      );
+    return response.data;
+  }
+
+  async getContractHealthOverview(): Promise<ContractHealthOverview> {
+    const response: AxiosResponse<ContractHealthOverview> =
+      await this.client.get("/api/contract-validations/health-status/overview");
     return response.data;
   }
 }
