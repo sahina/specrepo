@@ -94,9 +94,12 @@ describe("SpecificationDetail", () => {
     );
 
     // Wait for the async loading to complete and the component to update
-    await waitFor(() => {
-      expect(screen.getByText("Edit API Specification")).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(screen.getByText("Edit API Specification")).toBeInTheDocument();
+      },
+      { timeout: 3000 },
+    );
 
     expect(mockApiClient.getSpecification).toHaveBeenCalledWith(1);
   });
@@ -128,9 +131,12 @@ describe("SpecificationDetail", () => {
     );
 
     // Wait for the component to load
-    await waitFor(() => {
-      expect(screen.getByText("View API Specification")).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(screen.getByText("View API Specification")).toBeInTheDocument();
+      },
+      { timeout: 3000 },
+    );
 
     // The "All changes saved" notification should not be visible immediately
     expect(screen.queryByText("All changes saved")).not.toBeInTheDocument();

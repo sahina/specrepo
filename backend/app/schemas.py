@@ -383,3 +383,53 @@ class ValidationRunListResponse(BaseModel):
     page: int
     size: int
     pages: int
+
+
+# HAR Upload Schemas
+class HARUploadResponse(BaseModel):
+    """Schema for HAR upload responses."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    file_name: str
+    processed_artifacts_references: Optional[Dict[str, Any]] = None
+    uploaded_at: datetime
+    user_id: int
+
+
+class HARUploadFilters(BaseModel):
+    """Schema for HAR upload filtering and pagination."""
+
+    file_name: Optional[str] = None
+    sort_by: str = Field(default="uploaded_at")
+    sort_order: str = Field(default="desc")
+    page: int = Field(default=1, ge=1)
+    size: int = Field(default=10, ge=1, le=100)
+
+    @field_validator("sort_by")
+    @classmethod
+    def validate_sort_by(cls, v):
+        """Validate sort_by field."""
+        allowed_fields = ["file_name", "uploaded_at"]
+        if v not in allowed_fields:
+            raise ValueError(f"sort_by must be one of: {allowed_fields}")
+        return v
+
+    @field_validator("sort_order")
+    @classmethod
+    def validate_sort_order(cls, v):
+        """Validate sort_order field."""
+        if v not in ["asc", "desc"]:
+            raise ValueError("sort_order must be 'asc' or 'desc'")
+        return v
+
+
+class HARUploadListResponse(BaseModel):
+    """Schema for paginated HAR upload list response."""
+
+    items: List[HARUploadResponse]
+    total: int
+    page: int
+    size: int
+    pages: int
