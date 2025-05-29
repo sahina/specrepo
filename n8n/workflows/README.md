@@ -22,6 +22,102 @@ The SpecRepo platform uses a **single unified notification workflow** (`unified-
 - `har_processing_failed` - When HAR file processing fails
 - `har_review_requested` - When review is requested for AI-generated HAR artifacts
 
+## Dedicated HAR Processing Workflows
+
+In addition to the unified notification system, there are dedicated workflows for HAR processing notifications that provide enhanced functionality and better organization:
+
+### Workflow 4.1: HAR Processed & Sketches Ready (`har-processed-notification.json`)
+
+**Purpose**: Sends detailed notifications when HAR file processing completes (success or failure).
+
+**Webhook Path**: `/har-processed`
+
+**Features**:
+
+- Conditional formatting based on processing success/failure
+- Detailed processing statistics and artifact information
+- Direct links to platform UI for viewing artifacts
+- Enhanced email templates with processing metrics
+- Success rate calculations and progress indicators
+
+**Expected Payload**:
+
+```json
+{
+  "upload_id": 123,
+  "file_name": "example.har",
+  "user_id": 456,
+  "timestamp": "2023-01-01T00:00:00",
+  "processing_status": "completed|failed",
+  "processing_statistics": {
+    "interactions_count": 25,
+    "processed_interactions_count": 23,
+    "openapi_paths_count": 8,
+    "wiremock_stubs_count": 23,
+    "processing_steps_completed": 5,
+    "total_processing_steps": 5,
+    "processing_progress": 100,
+    "processing_options": {
+      "enable_ai_processing": true,
+      "enable_data_generalization": true
+    }
+  },
+  "artifacts_summary": {
+    "openapi_available": true,
+    "openapi_title": "Generated API",
+    "openapi_version": "1.0.0",
+    "openapi_paths_count": 8,
+    "wiremock_available": true,
+    "wiremock_stubs_count": 23,
+    "artifacts_generated_at": "2023-01-01T00:00:00"
+  },
+  "error_message": "Error details (only for failed events)"
+}
+```
+
+### Workflow 4.2: Review Request for AI-Generated Artifacts (`har-review-request.json`)
+
+**Purpose**: Sends review request notifications to reviewers when AI-generated HAR artifacts need approval.
+
+**Webhook Path**: `/har-review-request`
+
+**Features**:
+
+- Dual email notifications (to reviewers and user confirmation)
+- Comprehensive review checklist and guidelines
+- Direct links to review interface and artifact downloads
+- Processing context and AI configuration details
+- Review SLA and timeline information
+
+**Expected Payload**:
+
+```json
+{
+  "upload_id": 123,
+  "file_name": "example.har",
+  "user_id": 456,
+  "timestamp": "2023-01-01T00:00:00",
+  "artifacts_summary": {
+    "openapi_available": true,
+    "openapi_title": "Generated API",
+    "openapi_version": "1.0.0",
+    "openapi_paths_count": 8,
+    "wiremock_available": true,
+    "wiremock_stubs_count": 23,
+    "artifacts_generated_at": "2023-01-01T00:00:00"
+  },
+  "review_url": "http://localhost:5173/har-uploads/123/review",
+  "processing_statistics": {
+    "interactions_count": 25,
+    "processed_interactions_count": 23,
+    "processing_options": {
+      "enable_ai_processing": true,
+      "enable_data_generalization": true
+    }
+  }
+}
+```
+
 ### Payload Structures
 
 #### API Specification Events (`created`, `updated`)
@@ -181,6 +277,7 @@ The workflow is configured to:
 Use the test scripts in the `scripts/` directory:
 
 - `test_n8n_webhook.py` - Manual webhook testing
+- `test_har_workflows.py` - Dedicated HAR workflow testing
 - `setup_n8n_workflow.py` - Automated workflow setup and testing
 
 The workflow automatically handles all notification types and provides comprehensive information for each event.
@@ -199,40 +296,29 @@ The following environment variables control n8n webhook behavior:
 
 ### Email Configuration
 
-The workflow is configured to send emails to `altug@aecoffice.com`. Update the `toEmail` parameter in each email node to change the recipient.
+Configure SMTP settings in n8n:
 
-## Importing the Workflow
+1. Go to "Settings" > "Credentials" in n8n
+2. Add new credential of type "SMTP"
+3. Configure your SMTP server details
+4. Update the email nodes in workflows to use your SMTP credential
 
-1. Open your n8n instance
-2. Go to Workflows
-3. Click "Import from File"
-4. Select `unified-notification.json`
-5. Save and activate the workflow
+### Webhook URLs
 
-## Testing
+- **Unified Notifications**: `http://localhost:5679/webhook-test/notification`
+- **HAR Processing**: `http://localhost:5679/webhook-test/har-processed`
+- **HAR Review Requests**: `http://localhost:5679/webhook-test/har-review-request`
 
-The unified workflow can be tested by:
+### Testing the Workflows
 
-1. **API Specification Notifications**: Create or update an API specification through the SpecRepo API
-2. **Validation Notifications**: Trigger a validation run through the validation endpoints
+Run the test script to verify all workflows are working:
 
-All notifications will automatically be routed to the appropriate email template based on the `event_type`.
+```bash
+# Test all workflows
+python scripts/test_har_workflows.py
 
-## Webhook URL
-
-When the unified workflow is active, it will be available at:
-
-**Unified Endpoint**: `{N8N_BASE_URL}/webhook/notification`
-
-Make sure to set the `N8N_WEBHOOK_URL` environment variable to point to this unified endpoint.
-
-## Migration from Separate Workflows
-
-If you were previously using separate workflows (`api-spec-notification.json` and `validation-notification.json`), you can:
-
-1. Import the new `unified-notification.json` workflow
-2. Update your `N8N_WEBHOOK_URL` to point to `/notification`
-3. Deactivate and delete the old separate workflows
-4. Test that all notification types work correctly
-
-The unified workflow maintains the same email templates and functionality as the separate workflows.
+# Test specific workflow endpoints manually
+curl -X POST http://localhost:5679/webhook-test/har-processed \
+  -H "Content-Type: application/json" \
+  -d @test-data/har-success-payload.json
+```
