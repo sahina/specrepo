@@ -12,13 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
-from app.models import (
-    APISpecification,
-    ContractValidation,
-    Environment,
-    MockConfiguration,
-    ValidationRun,
-)
+from app.models import APISpecification, ContractValidation, Environment, MockConfiguration
 from app.schemas import AuthMethod, ContractHealthStatus, ContractValidationStatus
 from app.services.mock_configuration import MockConfigurationService
 from app.services.schemathesis_integration import SchemathesisIntegrationService
@@ -552,7 +546,8 @@ class ContractValidationService:
             db.refresh(contract_validation)
 
             logger.info(
-                f"Contract validation {contract_validation_id} completed with health status: {health_status.value}"
+                f"Contract validation {contract_validation_id} completed with health status: "
+                f"{health_status.value}"
             )
 
             return contract_validation

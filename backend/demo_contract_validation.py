@@ -16,17 +16,10 @@ Or via Makefile:
     make run-contract-validation-demo
 """
 
-import asyncio
 import json
 from datetime import datetime
-from typing import Any, Dict
 
-from app.schemas import ContractHealthStatus
-from app.services.contract_validation import (
-    ContractHealthAnalyzer,
-    ContractValidationService,
-    MockAlignmentChecker,
-)
+from app.services.contract_validation import ContractHealthAnalyzer, ContractValidationService
 
 
 def print_header(title: str) -> None:
@@ -71,31 +64,32 @@ def demo_health_calculation_scenarios():
     health_status = ContractHealthAnalyzer.determine_health_status(health_score)
 
     print(
-        f"  Producer Results: {producer_results_healthy['passed_tests']}/{producer_results_healthy['total_tests']} tests passed"
+        f"  Producer Results: {producer_results_healthy['passed_tests']}/"
+        f"{producer_results_healthy['total_tests']} tests passed"
     )
     print(
-        f"  Mock Alignment: {mock_alignment_healthy['aligned_endpoints']}/{mock_alignment_healthy['total_endpoints']} endpoints aligned"
+        f"  Mock Alignment: {mock_alignment_healthy['aligned_endpoints']}/"
+        f"{mock_alignment_healthy['total_endpoints']} endpoints aligned"
     )
     print(f"  Health Score: {health_score:.3f}")
     print(f"  Health Status: {health_status.value}")
-    print(f"  ✅ Result: Contract is HEALTHY")
+    print("  ✅ Result: Contract is HEALTHY")
 
     # Scenario 2: Degraded Contract
-    print_section("Scenario 2: Degraded Contract (Some Issues)")
-
+    print("\n2. Degraded Contract Scenario:")
     producer_results_degraded = {
-        "total_tests": 50,
-        "passed_tests": 35,
-        "failed_tests": 15,
+        "total_tests": 10,
+        "passed_tests": 7,
+        "failed_tests": 3,
         "errors": ["Connection timeout", "Rate limit exceeded"],
         "execution_time": 45,
     }
 
     mock_alignment_degraded = {
-        "total_endpoints": 8,
-        "aligned_endpoints": 6,
-        "schema_mismatches": 2,
-        "alignment_rate": 0.75,
+        "total_endpoints": 5,
+        "aligned_endpoints": 4,
+        "schema_mismatches": 1,
+        "alignment_rate": 0.8,
     }
 
     health_score = ContractHealthAnalyzer.calculate_health_score(
@@ -104,37 +98,37 @@ def demo_health_calculation_scenarios():
     health_status = ContractHealthAnalyzer.determine_health_status(health_score)
 
     print(
-        f"  Producer Results: {producer_results_degraded['passed_tests']}/{producer_results_degraded['total_tests']} tests passed"
+        f"  Producer Results: {producer_results_degraded['passed_tests']}/"
+        f"{producer_results_degraded['total_tests']} tests passed"
     )
     print(
-        f"  Mock Alignment: {mock_alignment_degraded['aligned_endpoints']}/{mock_alignment_degraded['total_endpoints']} endpoints aligned"
+        f"  Mock Alignment: {mock_alignment_degraded['aligned_endpoints']}/"
+        f"{mock_alignment_degraded['total_endpoints']} endpoints aligned"
     )
     print(f"  Health Score: {health_score:.3f}")
     print(f"  Health Status: {health_status.value}")
-    print(f"  ⚠️  Result: Contract is DEGRADED")
+    print("  ⚠️  Result: Contract is DEGRADED")
 
     # Scenario 3: Broken Contract
-    print_section("Scenario 3: Broken Contract (Major Issues)")
-
+    print("\n3. Broken Contract Scenario:")
     producer_results_broken = {
-        "total_tests": 50,
-        "passed_tests": 10,
-        "failed_tests": 40,
+        "total_tests": 10,
+        "passed_tests": 2,
+        "failed_tests": 8,
         "errors": [
             "Connection refused",
+            "Timeout",
             "Invalid response format",
             "Authentication failed",
-            "Timeout",
-            "Server error 500",
         ],
         "execution_time": 120,
     }
 
     mock_alignment_broken = {
-        "total_endpoints": 8,
-        "aligned_endpoints": 2,
-        "schema_mismatches": 6,
-        "alignment_rate": 0.25,
+        "total_endpoints": 5,
+        "aligned_endpoints": 1,
+        "schema_mismatches": 4,
+        "alignment_rate": 0.2,
     }
 
     health_score = ContractHealthAnalyzer.calculate_health_score(
@@ -143,14 +137,16 @@ def demo_health_calculation_scenarios():
     health_status = ContractHealthAnalyzer.determine_health_status(health_score)
 
     print(
-        f"  Producer Results: {producer_results_broken['passed_tests']}/{producer_results_broken['total_tests']} tests passed"
+        f"  Producer Results: {producer_results_broken['passed_tests']}/"
+        f"{producer_results_broken['total_tests']} tests passed"
     )
     print(
-        f"  Mock Alignment: {mock_alignment_broken['aligned_endpoints']}/{mock_alignment_broken['total_endpoints']} endpoints aligned"
+        f"  Mock Alignment: {mock_alignment_broken['aligned_endpoints']}/"
+        f"{mock_alignment_broken['total_endpoints']} endpoints aligned"
     )
     print(f"  Health Score: {health_score:.3f}")
     print(f"  Health Status: {health_status.value}")
-    print(f"  ❌ Result: Contract is BROKEN")
+    print("  ❌ Result: Contract is BROKEN")
 
 
 def demo_validation_summary():
@@ -271,7 +267,7 @@ def demo_service_initialization():
     print_header("CONTRACT VALIDATION SERVICE")
 
     print("Initializing Contract Validation Service...")
-    service = ContractValidationService()
+    ContractValidationService()  # Just instantiate to test initialization
     print("✅ Service initialized successfully")
 
     print("\nService Components:")
@@ -313,10 +309,8 @@ def demo_performance():
     start_time = time.time()
 
     for _ in range(iterations):
-        health_score = ContractHealthAnalyzer.calculate_health_score(
-            producer_results, mock_alignment_results
-        )
-        health_status = ContractHealthAnalyzer.determine_health_status(health_score)
+        ContractHealthAnalyzer.calculate_health_score(producer_results, mock_alignment_results)
+        # Just calculate score for performance testing
 
     end_time = time.time()
     total_time = end_time - start_time

@@ -6,7 +6,7 @@ including creating, executing, and retrieving validation results.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -17,7 +17,6 @@ from app.schemas import (
     ContractHealthStatus,
     ContractHealthSummary,
     ContractValidationCreate,
-    ContractValidationFilters,
     ContractValidationListResponse,
     ContractValidationResponse,
     ContractValidationStatus,
@@ -104,19 +103,6 @@ async def list_contract_validations(
     List contract validations with filtering and pagination.
     """
     try:
-        # Create filters object
-        filters = ContractValidationFilters(
-            api_specification_id=api_specification_id,
-            status=status,
-            contract_health_status=contract_health_status,
-            environment_id=environment_id,
-            provider_url=provider_url,
-            sort_by=sort_by,
-            sort_order=sort_order,
-            page=page,
-            size=size,
-        )
-
         # Calculate skip
         skip = (page - 1) * size
 

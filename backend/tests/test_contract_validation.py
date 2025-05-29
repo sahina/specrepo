@@ -16,7 +16,6 @@ from app.models import (
     APISpecification,
     ContractValidation,
     Environment,
-    MockConfiguration,
     User,
     ValidationRun,
 )
@@ -24,7 +23,6 @@ from app.schemas import (
     AuthMethod,
     ContractHealthStatus,
     ContractValidationStatus,
-    ValidationRunStatus,
 )
 from app.services.contract_validation import (
     ContractHealthAnalyzer,
