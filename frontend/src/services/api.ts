@@ -694,14 +694,14 @@ class ApiClient {
     return response.data;
   }
 
-  // ============================================================================
-  // Contract Sketches Methods
-  // ============================================================================
-
   async getHARProcessingStatus(id: number): Promise<HARProcessingStatus> {
     const response = await this.client.get(`/api/har-uploads/${id}/status`);
     return response.data;
   }
+
+  // ============================================================================
+  // Contract Sketches Methods
+  // ============================================================================
 
   async getHARProcessingArtifacts(
     id: number,

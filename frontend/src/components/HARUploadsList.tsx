@@ -46,7 +46,7 @@ export function HARUploadsList({
     page: 1,
     size: 10,
     total: 0,
-    pages: 0,
+    pages: 1,
   });
 
   const loadUploads = useCallback(
@@ -85,6 +85,44 @@ export function HARUploadsList({
   useEffect(() => {
     loadUploads();
   }, [loadUploads, refreshTrigger]);
+
+  // Polling for processing status
+  useEffect(() => {
+    if (processing.size === 0) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const processingIds = Array.from(processing);
+        const statusChecks = await Promise.allSettled(
+          processingIds.map((id) => apiClient.getHARProcessingStatus(id)),
+        );
+
+        let shouldRefresh = false;
+        const newProcessing = new Set(processing);
+
+        statusChecks.forEach((result, index) => {
+          const uploadId = processingIds[index];
+          if (result.status === "fulfilled") {
+            const status = result.value;
+            if (status.status === "completed" || status.status === "failed") {
+              newProcessing.delete(uploadId);
+              shouldRefresh = true;
+            }
+          }
+        });
+
+        if (shouldRefresh) {
+          setProcessing(newProcessing);
+          await loadUploads({ page: pagination.page });
+          onRefresh?.();
+        }
+      } catch (err) {
+        console.error("Error polling processing status:", err);
+      }
+    }, 2000); // Poll every 2 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [processing, pagination.page, loadUploads, onRefresh]);
 
   const handleDelete = async (id: number) => {
     if (!confirm("Are you sure you want to delete this HAR upload?")) {

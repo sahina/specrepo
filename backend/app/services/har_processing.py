@@ -114,18 +114,42 @@ class HARProcessingService:
             processed_interactions = []
             for interaction in interactions:
                 try:
-                    # Apply AI processing to generalize data and detect patterns
-                    if interaction.request.body:
-                        generalized_request = self.ai_processor.generalize_data(
-                            interaction.request.body
-                        )
-                        interaction.request.body = generalized_request.generalized_content
+                    # Apply AI processing to analyze and generalize data
+                    analysis = self.ai_processor.process_har_interaction(interaction)
 
-                    if interaction.response.body:
-                        generalized_response = self.ai_processor.generalize_data(
-                            interaction.response.body
-                        )
-                        interaction.response.body = generalized_response.generalized_content
+                    # Apply generalizations to request body if available
+                    if interaction.request.body and analysis.get("request_analysis", {}).get(
+                        "body_analysis"
+                    ):
+                        body_analysis = analysis["request_analysis"]["body_analysis"]
+                        if hasattr(body_analysis, "generalized"):
+                            # Convert generalized data back to string if it's JSON
+                            if (
+                                interaction.request.content_type
+                                and "json" in interaction.request.content_type.lower()
+                            ):
+                                import json
+
+                                interaction.request.body = json.dumps(body_analysis.generalized)
+                            else:
+                                interaction.request.body = str(body_analysis.generalized)
+
+                    # Apply generalizations to response body if available
+                    if interaction.response.body and analysis.get("response_analysis", {}).get(
+                        "body_analysis"
+                    ):
+                        body_analysis = analysis["response_analysis"]["body_analysis"]
+                        if hasattr(body_analysis, "generalized"):
+                            # Convert generalized data back to string if it's JSON
+                            if (
+                                interaction.response.content_type
+                                and "json" in interaction.response.content_type.lower()
+                            ):
+                                import json
+
+                                interaction.response.body = json.dumps(body_analysis.generalized)
+                            else:
+                                interaction.response.body = str(body_analysis.generalized)
 
                     processed_interactions.append(interaction)
                 except Exception as e:
@@ -144,11 +168,19 @@ class HARProcessingService:
             processing_status["current_step"] = ProcessingStep.OPENAPI_GENERATION.value
             processing_status["progress"] = 60
 
-            openapi_spec = self.openapi_transformer.transform_to_openapi(
-                processed_interactions,
-                api_title=f"API from {upload.file_name}",
-                api_version="1.0.0",
-                api_description=f"Generated from HAR file: {upload.file_name}",
+            # Convert interactions back to HAR content for the transformer
+            har_content = self._interactions_to_har_content(processed_interactions)
+
+            # Ensure options is not None
+            safe_options = options or {}
+
+            openapi_spec = self.openapi_transformer.transform_har_to_openapi(
+                har_content,
+                title=safe_options.get("api_title", f"API from {upload.file_name}"),
+                version=safe_options.get("api_version", "1.0.0"),
+                description=safe_options.get(
+                    "api_description", f"Generated from HAR file: {upload.file_name}"
+                ),
             )
 
             processing_status["steps"][ProcessingStep.OPENAPI_GENERATION.value] = {
@@ -197,7 +229,7 @@ class HARProcessingService:
                     "openapi_paths_count": len(openapi_spec.get("paths", {})),
                     "wiremock_stubs_count": len(wiremock_mappings),
                     "processed_at": datetime.now().isoformat(),
-                    "processing_options": options or {},
+                    "processing_options": safe_options,
                 },
             }
 
@@ -398,3 +430,79 @@ class HARProcessingService:
             validated_options["wiremock_templating"] = True
 
         return validated_options
+
+    def _interactions_to_har_content(self, interactions) -> str:
+        """Convert processed interactions back to HAR format."""
+        import json
+        from datetime import datetime
+
+        entries = []
+        for interaction in interactions:
+            entry = {
+                "startedDateTime": interaction.request.timestamp or datetime.now().isoformat(),
+                "time": interaction.duration or 0,
+                "request": {
+                    "method": interaction.request.method,
+                    "url": interaction.request.url,
+                    "httpVersion": "HTTP/1.1",
+                    "headers": [
+                        {"name": k, "value": v} for k, v in interaction.request.headers.items()
+                    ],
+                    "queryString": [
+                        {"name": k, "value": v[0] if v else ""}
+                        for k, v in interaction.request.query_params.items()
+                    ],
+                    "cookies": [],
+                    "headersSize": -1,
+                    "bodySize": len(interaction.request.body) if interaction.request.body else 0,
+                },
+                "response": {
+                    "status": interaction.response.status,
+                    "statusText": interaction.response.status_text or "",
+                    "httpVersion": "HTTP/1.1",
+                    "headers": [
+                        {"name": k, "value": v} for k, v in interaction.response.headers.items()
+                    ],
+                    "cookies": [],
+                    "content": {
+                        "size": interaction.response.size or 0,
+                        "mimeType": interaction.response.content_type or "application/json",
+                        "text": interaction.response.body or "",
+                    },
+                    "redirectURL": "",
+                    "headersSize": -1,
+                    "bodySize": interaction.response.size or 0,
+                },
+                "cache": {},
+                "timings": {
+                    "blocked": -1,
+                    "dns": -1,
+                    "connect": -1,
+                    "send": 0,
+                    "wait": interaction.duration or 0,
+                    "receive": 0,
+                    "ssl": -1,
+                },
+            }
+
+            # Add request body if present
+            if interaction.request.body:
+                entry["request"]["postData"] = {
+                    "mimeType": interaction.request.content_type or "application/json",
+                    "text": interaction.request.body,
+                }
+
+            entries.append(entry)
+
+        har_data = {
+            "log": {
+                "version": "1.2",
+                "creator": {
+                    "name": "SpecRepo HAR Processor",
+                    "version": "1.0.0",
+                },
+                "entries": entries,
+            }
+        }
+
+        return json.dumps(har_data)
