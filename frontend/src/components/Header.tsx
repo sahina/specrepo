@@ -23,6 +23,7 @@ export function Header({ currentView, onNavigate }: HeaderProps) {
     { id: "overview", label: "Overview" },
     { id: "specifications", label: "Specifications" },
     { id: "validations", label: "Validations" },
+    { id: "har-uploads", label: "HAR Uploads" },
     { id: "settings", label: "Settings" },
   ];
 
