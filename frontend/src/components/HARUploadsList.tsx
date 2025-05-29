@@ -16,13 +16,20 @@ import type {
   PaginatedResponse,
 } from "@/services/api";
 import apiClient from "@/services/api";
-import { Calendar, Eye, FileText, Trash2 } from "lucide-react";
+import { Calendar, Eye, FileText, Play, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 interface HARUploadsListProps {
   onRefresh?: () => void;
   refreshTrigger?: number;
   onViewContractSketches?: (uploadId: number) => void;
+}
+
+interface PaginationState {
+  page: number;
+  size: number;
+  total: number;
+  pages: number;
 }
 
 export function HARUploadsList({
@@ -34,7 +41,8 @@ export function HARUploadsList({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [pagination, setPagination] = useState({
+  const [processing, setProcessing] = useState<Set<number>>(new Set());
+  const [pagination, setPagination] = useState<PaginationState>({
     page: 1,
     size: 10,
     total: 0,
@@ -90,6 +98,28 @@ export function HARUploadsList({
     } catch (err) {
       console.error("Error deleting HAR upload:", err);
       setError("Failed to delete HAR upload");
+    }
+  };
+
+  const handleProcess = async (id: number) => {
+    try {
+      setProcessing((prev) => new Set(prev).add(id));
+      setError(null);
+
+      await apiClient.processHARFile(id);
+
+      // Refresh the uploads list to show updated status
+      await loadUploads({ page: pagination.page });
+      onRefresh?.();
+    } catch (err) {
+      console.error("Error processing HAR file:", err);
+      setError("Failed to process HAR file");
+    } finally {
+      setProcessing((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
+      });
     }
   };
 
@@ -217,6 +247,21 @@ export function HARUploadsList({
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
+                          {!upload.processed_artifacts_references && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleProcess(upload.id)}
+                              disabled={processing.has(upload.id)}
+                              className="text-blue-600 hover:text-blue-600"
+                            >
+                              {processing.has(upload.id) ? (
+                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+                              ) : (
+                                <Play className="h-4 w-4" />
+                              )}
+                            </Button>
+                          )}
                           {upload.processed_artifacts_references && (
                             <Button
                               variant="ghost"

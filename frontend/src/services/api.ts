@@ -678,6 +678,22 @@ class ApiClient {
     await this.client.delete(`/api/har-uploads/${id}`);
   }
 
+  async processHARFile(
+    id: number,
+    options?: Record<string, unknown>,
+  ): Promise<{
+    success: boolean;
+    upload_id: number;
+    message: string;
+    processing_status: HARProcessingStatus;
+  }> {
+    const response = await this.client.post(
+      `/api/har-uploads/${id}/process`,
+      options || {},
+    );
+    return response.data;
+  }
+
   // ============================================================================
   // Contract Sketches Methods
   // ============================================================================
