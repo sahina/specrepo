@@ -1,5 +1,14 @@
 # Services package
 
+from .har_ai_processor import (
+    DataPattern,
+    GeneralizedData,
+    HARDataGeneralizer,
+    HARDataPatternRecognizer,
+    HARDataProcessor,
+    HARTypeInferencer,
+    SensitiveDataMatch,
+)
 from .har_parser import APIInteraction, APIRequest, APIResponse, EndpointGroup, HARParser
 from .har_to_wiremock import HARToWireMockService, HARToWireMockTransformer
 from .schemathesis_integration import (
@@ -20,17 +29,24 @@ __all__ = [
     "APIInteraction",
     "APIRequest",
     "APIResponse",
+    "DataPattern",
     "EndpointGroup",
+    "GeneralizedData",
+    "HARDataGeneralizer",
+    "HARDataPatternRecognizer",
+    "HARDataProcessor",
     "HARParser",
     "HARToWireMockService",
     "HARToWireMockTransformer",
-    "WireMockIntegrationService",
-    "OpenAPIParser",
-    "WireMockStubGenerator",
-    "WireMockClient",
+    "HARTypeInferencer",
     "OpenAPIEndpoint",
-    "WireMockStub",
+    "OpenAPIParser",
     "SchemathesisIntegrationService",
+    "SensitiveDataMatch",
     "AuthenticationHandler",
     "SchemathesisTestRunner",
+    "WireMockClient",
+    "WireMockIntegrationService",
+    "WireMockStub",
+    "WireMockStubGenerator",
 ]

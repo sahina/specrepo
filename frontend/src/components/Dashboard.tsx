@@ -1,5 +1,6 @@
 import type { APISpecification, ValidationRun } from "@/services/api";
 import { useState } from "react";
+import { HARManager } from "./HARManager";
 import { Header } from "./Header";
 import { Settings } from "./Settings";
 import { SpecificationDetail } from "./SpecificationDetail";
@@ -12,6 +13,7 @@ type DashboardView =
   | "overview"
   | "specifications"
   | "validations"
+  | "har-uploads"
   | "settings"
   | "specification-detail"
   | "specification-view"
@@ -89,6 +91,18 @@ export function Dashboard() {
   const handleNavigate = (view: string) => {
     setState({ view: view as DashboardView });
   };
+
+  // HAR Uploads View
+  if (state.view === "har-uploads") {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header currentView={state.view} onNavigate={handleNavigate} />
+        <div className="container mx-auto px-4 py-8">
+          <HARManager onBack={() => setState({ view: "overview" })} />
+        </div>
+      </div>
+    );
+  }
 
   // Validation Trigger View
   if (state.view === "validation-trigger") {
@@ -242,6 +256,19 @@ export function Dashboard() {
                 onClick={() => setState({ view: "validations" })}
               >
                 View Reports
+              </button>
+            </div>
+
+            <div className="bg-card border rounded-lg p-6">
+              <h2 className="text-xl font-semibold mb-3">HAR Uploads</h2>
+              <p className="text-muted-foreground mb-4">
+                Upload and analyze HTTP Archive files to generate API specs
+              </p>
+              <button
+                className="bg-accent text-accent-foreground px-4 py-2 rounded-md hover:bg-accent/90 transition-colors"
+                onClick={() => setState({ view: "har-uploads" })}
+              >
+                Manage HAR Files
               </button>
             </div>
 

@@ -231,6 +231,23 @@ export interface MockStatusResponse {
   }>;
 }
 
+// HAR Upload types
+export interface HARUpload {
+  id: number;
+  file_name: string;
+  processed_artifacts_references?: Record<string, unknown>;
+  uploaded_at: string;
+  user_id: number;
+}
+
+export interface HARUploadFilters {
+  file_name?: string;
+  sort_by?: "file_name" | "uploaded_at";
+  sort_order?: "asc" | "desc";
+  page?: number;
+  size?: number;
+}
+
 // ============================================================================
 // API Client Class
 // ============================================================================
@@ -563,9 +580,54 @@ class ApiClient {
   }
 
   async clearMocks(): Promise<{ message: string; cleared_stubs: number }> {
-    const response: AxiosResponse<{ message: string; cleared_stubs: number }> =
-      await this.client.delete("/api/mocks/clear");
+    const response = await this.client.delete("/api/wiremock/clear");
     return response.data;
+  }
+
+  // ============================================================================
+  // HAR Upload Methods
+  // ============================================================================
+
+  async uploadHARFile(file: File): Promise<HARUpload> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await this.client.post(
+      "/api/har-uploads/upload",
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
+    return response.data;
+  }
+
+  async getHARUploads(
+    filters?: HARUploadFilters,
+  ): Promise<PaginatedResponse<HARUpload>> {
+    const params = new URLSearchParams();
+
+    if (filters?.file_name) params.append("file_name", filters.file_name);
+    if (filters?.sort_by) params.append("sort_by", filters.sort_by);
+    if (filters?.sort_order) params.append("sort_order", filters.sort_order);
+    if (filters?.page) params.append("page", filters.page.toString());
+    if (filters?.size) params.append("size", filters.size.toString());
+
+    const response = await this.client.get(
+      `/api/har-uploads?${params.toString()}`,
+    );
+    return response.data;
+  }
+
+  async getHARUpload(id: number): Promise<HARUpload> {
+    const response = await this.client.get(`/api/har-uploads/${id}`);
+    return response.data;
+  }
+
+  async deleteHARUpload(id: number): Promise<void> {
+    await this.client.delete(`/api/har-uploads/${id}`);
   }
 }
 
