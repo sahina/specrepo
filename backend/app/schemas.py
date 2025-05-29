@@ -558,3 +558,154 @@ class HARProcessingArtifactsResponse(BaseModel):
     artifacts: HARProcessingArtifacts = Field(..., description="Generated artifacts")
     uploaded_at: datetime = Field(..., description="Upload timestamp")
     processed_at: datetime = Field(..., description="Processing completion timestamp")
+
+
+# Contract Validation Schemas
+class ContractHealthStatus(str, Enum):
+    """Contract health status enumeration."""
+
+    HEALTHY = "healthy"
+    DEGRADED = "degraded"
+    BROKEN = "broken"
+
+
+class ContractValidationStatus(str, Enum):
+    """Contract validation status enumeration."""
+
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class ContractValidationCreate(BaseModel):
+    """Schema for creating a contract validation."""
+
+    api_specification_id: int = Field(..., description="ID of the API specification to validate")
+    environment_id: Optional[int] = Field(
+        None, description="ID of the predefined environment to validate against"
+    )
+    provider_url: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=2048,
+        description="Custom provider URL (used if environment_id is not provided)",
+    )
+    auth_method: AuthMethod = Field(
+        default=AuthMethod.NONE, description="Authentication method to use"
+    )
+    auth_config: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Authentication configuration (API keys, tokens, etc.)",
+    )
+    test_strategies: Optional[List[str]] = Field(
+        default=None,
+        description="Specific test strategies to use for validation",
+    )
+    max_examples: Optional[int] = Field(
+        default=100,
+        ge=1,
+        le=1000,
+        description="Maximum number of test examples to generate",
+    )
+    timeout: Optional[int] = Field(
+        default=300,
+        ge=30,
+        le=3600,
+        description="Timeout in seconds for the validation process",
+    )
+
+    @field_validator("provider_url")
+    @classmethod
+    def validate_provider_url(cls, v):
+        """Validate provider URL format."""
+        if v is None:
+            return v
+        if not v.startswith(("http://", "https://")):
+            raise ValueError("Provider URL must start with http:// or https://")
+        return v.rstrip("/")
+
+    def model_post_init(self, __context):
+        """Validate that either environment_id or provider_url is provided."""
+        if not self.environment_id and not self.provider_url:
+            raise ValueError("Either environment_id or provider_url must be provided")
+
+
+class ContractValidationResponse(BaseModel):
+    """Schema for contract validation responses."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    api_specification_id: int
+    environment_id: Optional[int] = None
+    provider_url: str
+    validation_run_id: int
+    mock_configuration_id: Optional[int] = None
+    contract_health_status: ContractHealthStatus
+    health_score: float
+    producer_validation_results: Optional[Dict[str, Any]] = None
+    mock_alignment_results: Optional[Dict[str, Any]] = None
+    validation_summary: Optional[Dict[str, Any]] = None
+    status: ContractValidationStatus
+    triggered_at: datetime
+    completed_at: Optional[datetime] = None
+    user_id: int
+
+
+class ContractValidationFilters(BaseModel):
+    """Schema for contract validation filtering and pagination."""
+
+    api_specification_id: Optional[int] = None
+    status: Optional[ContractValidationStatus] = None
+    contract_health_status: Optional[ContractHealthStatus] = None
+    environment_id: Optional[int] = None
+    provider_url: Optional[str] = None
+    sort_by: str = Field(default="triggered_at")
+    sort_order: str = Field(default="desc")
+    page: int = Field(default=1, ge=1)
+    size: int = Field(default=10, ge=1, le=100)
+
+    @field_validator("sort_by")
+    @classmethod
+    def validate_sort_by(cls, v):
+        """Validate sort_by field."""
+        allowed_fields = [
+            "triggered_at",
+            "completed_at",
+            "status",
+            "health_score",
+            "contract_health_status",
+        ]
+        if v not in allowed_fields:
+            raise ValueError(f"sort_by must be one of: {allowed_fields}")
+        return v
+
+    @field_validator("sort_order")
+    @classmethod
+    def validate_sort_order(cls, v):
+        """Validate sort_order field."""
+        if v not in ["asc", "desc"]:
+            raise ValueError("sort_order must be 'asc' or 'desc'")
+        return v
+
+
+class ContractValidationListResponse(BaseModel):
+    """Schema for paginated contract validation list response."""
+
+    items: List[ContractValidationResponse]
+    total: int
+    page: int
+    size: int
+    pages: int
+
+
+class ContractHealthSummary(BaseModel):
+    """Schema for contract health summary."""
+
+    total_validations: int
+    healthy_count: int
+    degraded_count: int
+    broken_count: int
+    average_health_score: float
+    latest_validation: Optional[ContractValidationResponse] = None
