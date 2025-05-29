@@ -248,6 +248,51 @@ export interface HARUploadFilters {
   size?: number;
 }
 
+// Contract Sketches types
+export interface HARProcessingMetadata {
+  interactions_count: number;
+  processed_interactions_count: number;
+  openapi_paths_count: number;
+  wiremock_stubs_count: number;
+  processed_at: string;
+  processing_options: Record<string, unknown>;
+}
+
+export interface HARProcessingArtifacts {
+  openapi_specification: Record<string, unknown>;
+  wiremock_mappings: Array<Record<string, unknown>>;
+  processing_metadata: HARProcessingMetadata;
+}
+
+export interface HARProcessingArtifactsResponse {
+  upload_id: number;
+  file_name: string;
+  artifacts: HARProcessingArtifacts;
+  uploaded_at: string;
+  processed_at: string;
+}
+
+export interface HARProcessingStatus {
+  status: "pending" | "running" | "completed" | "failed";
+  progress: number;
+  current_step?: string;
+  started_at?: string;
+  completed_at?: string;
+  failed_at?: string;
+  error?: string;
+  artifacts_available: boolean;
+  interactions_count?: number;
+  openapi_paths_count?: number;
+  wiremock_stubs_count?: number;
+}
+
+export interface SaveArtifactRequest {
+  artifact_type: "openapi_specification" | "wiremock_mappings";
+  name: string;
+  version_string?: string;
+  description?: string;
+}
+
 // ============================================================================
 // API Client Class
 // ============================================================================
@@ -628,6 +673,33 @@ class ApiClient {
 
   async deleteHARUpload(id: number): Promise<void> {
     await this.client.delete(`/api/har-uploads/${id}`);
+  }
+
+  // ============================================================================
+  // Contract Sketches Methods
+  // ============================================================================
+
+  async getHARProcessingStatus(id: number): Promise<HARProcessingStatus> {
+    const response = await this.client.get(`/api/har-uploads/${id}/status`);
+    return response.data;
+  }
+
+  async getHARProcessingArtifacts(
+    id: number,
+  ): Promise<HARProcessingArtifactsResponse> {
+    const response = await this.client.get(`/api/har-uploads/${id}/artifacts`);
+    return response.data;
+  }
+
+  async saveArtifact(
+    uploadId: number,
+    data: SaveArtifactRequest,
+  ): Promise<{ message: string; id: number }> {
+    const response = await this.client.post(
+      `/api/har-uploads/${uploadId}/save-artifact`,
+      data,
+    );
+    return response.data;
   }
 }
 

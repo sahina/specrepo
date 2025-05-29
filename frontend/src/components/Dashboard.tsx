@@ -1,5 +1,6 @@
 import type { APISpecification, ValidationRun } from "@/services/api";
 import { useState } from "react";
+import { ContractSketches } from "./ContractSketches";
 import { HARManager } from "./HARManager";
 import { Header } from "./Header";
 import { Settings } from "./Settings";
@@ -14,6 +15,7 @@ type DashboardView =
   | "specifications"
   | "validations"
   | "har-uploads"
+  | "contract-sketches"
   | "settings"
   | "specification-detail"
   | "specification-view"
@@ -25,6 +27,7 @@ interface DashboardState {
   view: DashboardView;
   selectedSpecificationId?: number;
   selectedValidationId?: number;
+  selectedHARUploadId?: number;
 }
 
 export function Dashboard() {
@@ -88,9 +91,35 @@ export function Dashboard() {
     setState({ view: "validations" });
   };
 
+  const handleViewContractSketches = (uploadId: number) => {
+    setState({
+      view: "contract-sketches",
+      selectedHARUploadId: uploadId,
+    });
+  };
+
+  const handleBackToHARUploads = () => {
+    setState({ view: "har-uploads" });
+  };
+
   const handleNavigate = (view: string) => {
     setState({ view: view as DashboardView });
   };
+
+  // Contract Sketches View
+  if (state.view === "contract-sketches" && state.selectedHARUploadId) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header currentView={state.view} onNavigate={handleNavigate} />
+        <div className="container mx-auto px-4 py-8">
+          <ContractSketches
+            uploadId={state.selectedHARUploadId}
+            onBack={handleBackToHARUploads}
+          />
+        </div>
+      </div>
+    );
+  }
 
   // HAR Uploads View
   if (state.view === "har-uploads") {
@@ -98,7 +127,10 @@ export function Dashboard() {
       <div className="min-h-screen bg-background">
         <Header currentView={state.view} onNavigate={handleNavigate} />
         <div className="container mx-auto px-4 py-8">
-          <HARManager onBack={() => setState({ view: "overview" })} />
+          <HARManager
+            onBack={() => setState({ view: "overview" })}
+            onViewContractSketches={handleViewContractSketches}
+          />
         </div>
       </div>
     );

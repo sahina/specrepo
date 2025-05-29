@@ -10,9 +10,13 @@ type HARManagerView = "upload" | "list";
 
 interface HARManagerProps {
   onBack?: () => void;
+  onViewContractSketches?: (uploadId: number) => void;
 }
 
-export function HARManager({ onBack }: HARManagerProps) {
+export function HARManager({
+  onBack,
+  onViewContractSketches,
+}: HARManagerProps) {
   const [currentView, setCurrentView] = useState<HARManagerView>("upload");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -195,6 +199,7 @@ export function HARManager({ onBack }: HARManagerProps) {
         <HARUploadsList
           onRefresh={() => setRefreshTrigger((prev) => prev + 1)}
           refreshTrigger={refreshTrigger}
+          onViewContractSketches={onViewContractSketches}
         />
       )}
     </div>

@@ -16,17 +16,19 @@ import type {
   PaginatedResponse,
 } from "@/services/api";
 import apiClient from "@/services/api";
-import { Calendar, FileText, Trash2 } from "lucide-react";
+import { Calendar, Eye, FileText, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 interface HARUploadsListProps {
   onRefresh?: () => void;
   refreshTrigger?: number;
+  onViewContractSketches?: (uploadId: number) => void;
 }
 
 export function HARUploadsList({
   onRefresh,
   refreshTrigger,
+  onViewContractSketches,
 }: HARUploadsListProps) {
   const [uploads, setUploads] = useState<HARUpload[]>([]);
   const [loading, setLoading] = useState(true);
@@ -215,6 +217,18 @@ export function HARUploadsList({
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
+                          {upload.processed_artifacts_references && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                onViewContractSketches?.(upload.id)
+                              }
+                              className="text-primary hover:text-primary"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
