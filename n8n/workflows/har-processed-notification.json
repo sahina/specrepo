@@ -1,0 +1,152 @@
+{
+  "name": "HAR Processed & Sketches Ready",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "har-processed",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 400],
+      "webhookId": "har-processed-notification"
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.processing_status }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "completed",
+              "output": 0
+            },
+            {
+              "value2": "failed",
+              "output": 1
+            }
+          ]
+        }
+      },
+      "id": "route-by-status",
+      "name": "Route by Processing Status",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@specrepo.com",
+        "toEmail": "altug@aecoffice.com",
+        "subject": "🎉 HAR Processing Complete: {{ $json.file_name }} - Sketches Ready!",
+        "text": "Hello,\n\nGreat news! Your HAR file has been successfully processed and API sketches are ready:\n\n📋 **Processing Summary:**\n- File Name: {{ $json.file_name }}\n- Upload ID: {{ $json.upload_id }}\n- Processing Status: ✅ {{ $json.processing_status | upper }}\n- Completed: {{ $json.timestamp }}\n\n📊 **Processing Statistics:**\n- HTTP Interactions Found: {{ $json.processing_statistics.interactions_count }}\n- Successfully Processed: {{ $json.processing_statistics.processed_interactions_count }}\n- Processing Success Rate: {{ Math.round(($json.processing_statistics.processed_interactions_count / $json.processing_statistics.interactions_count) * 100) }}%\n- OpenAPI Paths Generated: {{ $json.processing_statistics.openapi_paths_count }}\n- WireMock Stubs Created: {{ $json.processing_statistics.wiremock_stubs_count }}\n- Processing Steps: {{ $json.processing_statistics.processing_steps_completed }}/{{ $json.processing_statistics.total_processing_steps }}\n- Overall Progress: {{ $json.processing_statistics.processing_progress }}%\n\n🔧 **Generated Artifacts:**\n{{#if $json.artifacts_summary.openapi_available}}\n✅ **OpenAPI Specification**\n- Title: {{ $json.artifacts_summary.openapi_title }}\n- Version: {{ $json.artifacts_summary.openapi_version }}\n- API Paths: {{ $json.artifacts_summary.openapi_paths_count }}\n- Generated: {{ $json.artifacts_summary.artifacts_generated_at }}\n{{else}}\n❌ OpenAPI Specification: Not available\n{{/if}}\n\n{{#if $json.artifacts_summary.wiremock_available}}\n✅ **WireMock Mappings**\n- Stub Count: {{ $json.artifacts_summary.wiremock_stubs_count }}\n- Generated: {{ $json.artifacts_summary.artifacts_generated_at }}\n{{else}}\n❌ WireMock Mappings: Not available\n{{/if}}\n\n🔗 **Quick Actions:**\n- 📱 View HAR Upload Details: http://localhost:5173/har-uploads/{{ $json.upload_id }}\n- 📥 Download All Artifacts: http://localhost:5173/har-uploads/{{ $json.upload_id }}/artifacts\n{{#if $json.artifacts_summary.openapi_available}}\n- 📋 View OpenAPI Spec: http://localhost:5173/har-uploads/{{ $json.upload_id }}/openapi\n{{/if}}\n{{#if $json.artifacts_summary.wiremock_available}}\n- 🔧 View WireMock Stubs: http://localhost:5173/har-uploads/{{ $json.upload_id }}/wiremock\n{{/if}}\n- 📚 Platform Documentation: http://localhost:8000/docs\n\n🎯 **Processing Options Applied:**\n- AI Processing: {{ $json.processing_statistics.processing_options.enable_ai_processing ? '✅ Enabled' : '❌ Disabled' }}\n- Data Generalization: {{ $json.processing_statistics.processing_options.enable_data_generalization ? '✅ Enabled' : '❌ Disabled' }}\n\nYour API sketches are now ready for review and use. You can download the artifacts or view them directly in the platform.\n\nBest regards,\nSpecRepo HAR Processing System",
+        "options": {}
+      },
+      "id": "send-success-email",
+      "name": "Send Success Notification",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@specrepo.com",
+        "toEmail": "altug@aecoffice.com",
+        "subject": "❌ HAR Processing Failed: {{ $json.file_name }}",
+        "text": "Hello,\n\nUnfortunately, your HAR file processing has failed:\n\n📋 **Processing Details:**\n- File Name: {{ $json.file_name }}\n- Upload ID: {{ $json.upload_id }}\n- Processing Status: ❌ {{ $json.processing_status | upper }}\n- Failed: {{ $json.timestamp }}\n\n❌ **Failure Information:**\n- Error Message: {{ $json.error_message || 'Unknown error occurred during processing' }}\n\n📊 **Partial Processing Statistics:**\n- HTTP Interactions Found: {{ $json.processing_statistics.interactions_count || 0 }}\n- Processing Progress: {{ $json.processing_statistics.processing_progress || 0 }}%\n- Steps Completed: {{ $json.processing_statistics.processing_steps_completed || 0 }}/{{ $json.processing_statistics.total_processing_steps || 0 }}\n{{#if $json.processing_statistics.processed_interactions_count}}\n- Interactions Processed Before Failure: {{ $json.processing_statistics.processed_interactions_count }}\n{{/if}}\n\n🔧 **Processing Options:**\n- AI Processing: {{ $json.processing_statistics.processing_options.enable_ai_processing ? 'Enabled' : 'Disabled' }}\n- Data Generalization: {{ $json.processing_statistics.processing_options.enable_data_generalization ? 'Enabled' : 'Disabled' }}\n\n🔗 **Next Steps:**\n- 📱 View Upload Details: http://localhost:5173/har-uploads/{{ $json.upload_id }}\n- 🔄 Retry Processing: http://localhost:5173/har-uploads/{{ $json.upload_id }}/reprocess\n- 📞 Contact Support: http://localhost:5173/support\n- 📚 HAR Format Guide: http://localhost:5173/docs/har-format\n- 📚 Platform Documentation: http://localhost:8000/docs\n\n💡 **Troubleshooting Tips:**\n- Ensure your HAR file is valid and contains HTTP traffic\n- Check that the HAR file size is within limits\n- Verify the HAR file contains API interactions (not just static resources)\n- Try processing with different options if available\n\nIf the issue persists, please contact our support team with the Upload ID for assistance.\n\nBest regards,\nSpecRepo HAR Processing System",
+        "options": {}
+      },
+      "id": "send-failure-email",
+      "name": "Send Failure Notification",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [680, 500]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"success\",\n  \"message\": \"HAR processing notification sent successfully\",\n  \"processing_status\": \"{{ $json.processing_status }}\",\n  \"upload_id\": \"{{ $json.upload_id }}\",\n  \"timestamp\": \"{{ new Date().toISOString() }}\"\n}"
+      },
+      "id": "webhook-response",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [900, 400]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Route by Processing Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Processing Status": {
+      "main": [
+        [
+          {
+            "node": "Send Success Notification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Failure Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Success Notification": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Failure Notification": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "versionId": "1",
+  "id": "har-processed-notification",
+  "meta": {
+    "instanceId": "specrepo-n8n"
+  },
+  "tags": [
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "name": "specrepo"
+    },
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "name": "har-processing"
+    }
+  ]
+}

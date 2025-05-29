@@ -1,0 +1,111 @@
+{
+  "name": "Review Request for AI-Generated Artifacts",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "har-review-request",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 400],
+      "webhookId": "har-review-request"
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@specrepo.com",
+        "toEmail": "altug@aecoffice.com",
+        "subject": "🔍 Review Required: AI-Generated HAR Artifacts - {{ $json.file_name }}",
+        "text": "Hello Review Team,\n\nA new set of AI-generated artifacts from HAR processing requires your review and approval:\n\n📋 **Review Request Details:**\n- File Name: {{ $json.file_name }}\n- Upload ID: {{ $json.upload_id }}\n- Requested by User ID: {{ $json.user_id }}\n- Request Time: {{ $json.timestamp }}\n\n🤖 **AI Processing Summary:**\n- Total HTTP Interactions: {{ $json.processing_statistics.interactions_count }}\n- Successfully Processed: {{ $json.processing_statistics.processed_interactions_count }}\n- Processing Success Rate: {{ Math.round(($json.processing_statistics.processed_interactions_count / $json.processing_statistics.interactions_count) * 100) }}%\n\n🔧 **Generated Artifacts for Review:**\n{{#if $json.artifacts_summary.openapi_available}}\n✅ **OpenAPI Specification**\n- API Title: {{ $json.artifacts_summary.openapi_title }}\n- API Version: {{ $json.artifacts_summary.openapi_version }}\n- Total API Paths: {{ $json.artifacts_summary.openapi_paths_count }}\n- Generated: {{ $json.artifacts_summary.artifacts_generated_at }}\n{{else}}\n❌ OpenAPI Specification: Not generated\n{{/if}}\n\n{{#if $json.artifacts_summary.wiremock_available}}\n✅ **WireMock Mappings**\n- Total Stubs: {{ $json.artifacts_summary.wiremock_stubs_count }}\n- Generated: {{ $json.artifacts_summary.artifacts_generated_at }}\n{{else}}\n❌ WireMock Mappings: Not generated\n{{/if}}\n\n🎯 **AI Processing Configuration:**\n- AI Processing: {{ $json.processing_statistics.processing_options.enable_ai_processing ? '✅ Enabled' : '❌ Disabled' }}\n- Data Generalization: {{ $json.processing_statistics.processing_options.enable_data_generalization ? '✅ Enabled' : '❌ Disabled' }}\n\n🔗 **Review Actions Required:**\n- 🔍 **Primary Review Interface**: {{ $json.review_url }}\n- 📱 View HAR Upload Details: http://localhost:5173/har-uploads/{{ $json.upload_id }}\n- 📥 Download Artifacts for Review: http://localhost:5173/har-uploads/{{ $json.upload_id }}/artifacts\n{{#if $json.artifacts_summary.openapi_available}}\n- 📋 Review OpenAPI Specification: http://localhost:5173/har-uploads/{{ $json.upload_id }}/openapi\n{{/if}}\n{{#if $json.artifacts_summary.wiremock_available}}\n- 🔧 Review WireMock Stubs: http://localhost:5173/har-uploads/{{ $json.upload_id }}/wiremock\n{{/if}}\n- 📚 Review Guidelines: http://localhost:5173/docs/review-guidelines\n- 📚 Platform Documentation: http://localhost:8000/docs\n\n📝 **Review Checklist:**\n- [ ] Verify API endpoint accuracy and completeness\n- [ ] Check parameter types and validation rules\n- [ ] Review response schemas and examples\n- [ ] Validate WireMock stub configurations\n- [ ] Ensure data generalization is appropriate\n- [ ] Confirm security considerations are addressed\n- [ ] Test artifact functionality if possible\n\n⚠️ **Important Notes:**\n- These artifacts were generated using AI processing of HTTP traffic\n- Please review for accuracy, completeness, and security implications\n- Approve, request modifications, or reject based on quality standards\n- The user is waiting for your review to proceed with their integration\n\n🕒 **Review SLA:** Please complete your review within 24 hours of receiving this notification.\n\nThank you for maintaining the quality of our AI-generated API specifications!\n\nBest regards,\nSpecRepo Review System",
+        "options": {}
+      },
+      "id": "send-review-request-email",
+      "name": "Send Review Request Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@specrepo.com",
+        "toEmail": "altug@aecoffice.com",
+        "subject": "📧 Review Request Confirmation: {{ $json.file_name }}",
+        "text": "Hello,\n\nThis is a confirmation that your review request for AI-generated HAR artifacts has been submitted:\n\n📋 **Request Details:**\n- File Name: {{ $json.file_name }}\n- Upload ID: {{ $json.upload_id }}\n- Request Time: {{ $json.timestamp }}\n\n🔍 **What Happens Next:**\n1. Our review team has been notified\n2. They will examine the AI-generated artifacts\n3. You'll receive an email when the review is complete\n4. Approved artifacts will be available for download and use\n\n📊 **Artifacts Under Review:**\n{{#if $json.artifacts_summary.openapi_available}}\n- ✅ OpenAPI Specification ({{ $json.artifacts_summary.openapi_paths_count }} paths)\n{{/if}}\n{{#if $json.artifacts_summary.wiremock_available}}\n- ✅ WireMock Mappings ({{ $json.artifacts_summary.wiremock_stubs_count }} stubs)\n{{/if}}\n\n🔗 **Track Your Request:**\n- View Status: http://localhost:5173/har-uploads/{{ $json.upload_id }}\n- Review Interface: {{ $json.review_url }}\n\n⏱️ **Expected Timeline:** Reviews are typically completed within 24 hours.\n\nThank you for using SpecRepo's AI-powered HAR processing!\n\nBest regards,\nSpecRepo Platform",
+        "options": {}
+      },
+      "id": "send-user-confirmation-email",
+      "name": "Send User Confirmation",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"success\",\n  \"message\": \"Review request notifications sent successfully\",\n  \"upload_id\": \"{{ $json.upload_id }}\",\n  \"review_url\": \"{{ $json.review_url }}\",\n  \"artifacts_count\": {{ ($json.artifacts_summary.openapi_available ? 1 : 0) + ($json.artifacts_summary.wiremock_available ? 1 : 0) }},\n  \"timestamp\": \"{{ new Date().toISOString() }}\"\n}"
+      },
+      "id": "webhook-response",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [900, 400]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Send Review Request Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Review Request Email": {
+      "main": [
+        [
+          {
+            "node": "Send User Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send User Confirmation": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "versionId": "1",
+  "id": "har-review-request",
+  "meta": {
+    "instanceId": "specrepo-n8n"
+  },
+  "tags": [
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "name": "specrepo"
+    },
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "name": "har-review"
+    }
+  ]
+}
