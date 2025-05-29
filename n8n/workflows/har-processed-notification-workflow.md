@@ -76,7 +76,7 @@ graph TD
    - Select "SMTP" from the list
    - Configure your email settings:
 
-   ```
+   ```text
    Host: smtp.gmail.com (for Gmail)
    Port: 587
    Username: your-email@gmail.com
@@ -414,7 +414,7 @@ Ensure the backend sends all required fields:
 - `artifacts_summary` - Summary of generated artifacts (for success)
 - `error_message` - Error details (for failures)
 
-### Error Handling
+### Error Handling in Backend
 
 The backend should handle webhook failures gracefully:
 
