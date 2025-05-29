@@ -635,17 +635,20 @@ class ApiClient {
 
   async uploadHARFile(file: File): Promise<HARUpload> {
     const formData = new FormData();
-    formData.append("file", file);
 
-    const response = await this.client.post(
-      "/api/har-uploads/upload",
-      formData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+    // Create a new File object with the correct MIME type for HAR files
+    const harFile = new File([file], file.name, {
+      type: "application/json",
+      lastModified: file.lastModified,
+    });
+
+    formData.append("file", harFile);
+
+    const response = await this.client.post("/api/har-uploads", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
       },
-    );
+    });
     return response.data;
   }
 

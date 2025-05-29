@@ -89,8 +89,11 @@ def validate_file(file: UploadFile) -> None:
                 detail=f"File type not allowed. Allowed types: {', '.join(ALLOWED_EXTENSIONS)}",
             )
 
-    # Check content type
-    if file.content_type and not file.content_type.startswith(("application/json", "text/")):
+    # Check content type - be more permissive for HAR files
+    if file.content_type and not (
+        file.content_type.startswith(("application/json", "text/"))
+        or file.content_type in ("application/octet-stream", "application/x-har")
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid content type. Expected JSON or text file.",
