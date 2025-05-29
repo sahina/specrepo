@@ -1,0 +1,100 @@
+# Docker Compose Override for Local Development
+# This file is automatically loaded by docker-compose and provides
+# additional development tools and debugging capabilities
+version: "3.8"
+
+services:
+  backend:
+    # Add development debugging tools
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+      - DEBUG=true
+    # Mount additional development files
+    volumes:
+      - ./backend/tests:/app/tests
+      - ./backend/docs:/app/docs
+    # Override command for development with auto-reload
+    command:
+      [
+        "uv",
+        "run",
+        "--frozen",
+        "uvicorn",
+        "main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--reload",
+        "--log-level",
+        "debug",
+      ]
+
+  frontend:
+    # Add development environment variables
+    environment:
+      - VITE_DEV_MODE=true
+      - VITE_LOG_LEVEL=debug
+    # Mount additional development files
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/vite.config.ts:/app/vite.config.ts
+      - ./frontend/tailwind.config.js:/app/tailwind.config.js
+
+  # Add development database for testing
+  postgres_test:
+    image: postgres:15-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=test_user
+      - POSTGRES_PASSWORD=test_password
+      - POSTGRES_DB=appdb_test
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d appdb_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Add pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    ports:
+      - "5050:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@specrepo.dev
+      - PGADMIN_DEFAULT_PASSWORD=admin
+      - PGADMIN_CONFIG_SERVER_MODE=False
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - app-network
+    depends_on:
+      - postgres
+
+  # Add Redis for caching (optional development tool)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - app-network
+    command: redis-server --appendonly yes
+
+volumes:
+  postgres_test_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  redis_data:
+    driver: local
