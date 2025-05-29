@@ -3,9 +3,7 @@ import sys
 
 # Add the 'backend' directory (parent of 'tests') to the Python path
 # This allows pytest to find the 'app' module
-sys.path.insert(
-    0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-)
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import pytest
 from alembic import command
@@ -15,6 +13,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import text
 
 from app.db.base_class import Base
+from app.middleware import RateLimitMiddleware
 
 # Determine the database URL
 # If TEST_DATABASE_URL is set, use it, otherwise construct from alembic.ini
@@ -23,9 +22,7 @@ DEFAULT_DB_URL = "postgresql://user:password@localhost:5432/appdb_test"
 DATABASE_URL = os.getenv("TEST_DATABASE_URL", DEFAULT_DB_URL)
 
 # Alembic config
-ALEMBIC_INI_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)), "alembic.ini"
-)
+ALEMBIC_INI_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "alembic.ini")
 
 
 @pytest.fixture(scope="session")
@@ -50,8 +47,7 @@ def setup_test_database(db_engine):
             connection.commit()
         except Exception as e:
             print(
-                f"Note: Could not truncate alembic_version "
-                f"(may not exist yet or other issue): {e}"
+                f"Note: Could not truncate alembic_version (may not exist yet or other issue): {e}"
             )
             connection.rollback()  # Rollback if truncate failed for any reason
 
@@ -67,9 +63,7 @@ def setup_test_database(db_engine):
 @pytest.fixture(scope="function")
 def db_session(db_engine, setup_test_database):
     """Yields a SQLAlchemy session for a test."""
-    SessionLocal = sessionmaker(
-        autocommit=False, autoflush=False, bind=db_engine
-    )
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=db_engine)
     session = SessionLocal()
     try:
         yield session
@@ -83,3 +77,12 @@ def models_fixture():
     from app import models as app_models
 
     return app_models
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiting():
+    """Reset rate limiting attempts before each test to prevent 429 errors."""
+    RateLimitMiddleware.reset_attempts()
+    yield
+    # Clean up after test as well
+    RateLimitMiddleware.reset_attempts()
